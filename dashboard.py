@@ -5,6 +5,17 @@ import plotly.graph_objects as go
 from datetime import date, timedelta
 from io import StringIO
 
+
+@st.cache_resource(show_spinner=False)
+def _load_bg_b64() -> str:
+    """Load bg.jpg from repo root as base64 (cached). Returns '' if not found."""
+    import base64, pathlib
+    p = pathlib.Path(__file__).parent / "bg.jpg"
+    if p.exists():
+        with open(p, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    return ""
+
 st.set_page_config(
     page_title="Fitness Group Dashboard",
     page_icon="🏃",
@@ -327,6 +338,24 @@ st.markdown("""
 </svg>
 </div>
 """, unsafe_allow_html=True)
+
+# ── Custom photo background (watermark) ──────────────────────────────────────
+# Place bg.jpg in the repo root to activate. Falls back to the SVG above.
+_bg = _load_bg_b64()
+if _bg:
+    st.markdown(f"""
+    <style>
+        /* Hide the SVG botanical layer when photo background is active */
+        .botanical-layer {{ display: none !important; }}
+        /* Slight paper tint so content stays readable */
+        .stApp {{ background-color: rgba(245,250,255,0.55) !important; }}
+    </style>
+    <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;
+                pointer-events:none;z-index:0;overflow:hidden;opacity:0.22">
+        <img src="data:image/jpeg;base64,{_bg}"
+             style="width:100%;height:100%;object-fit:cover;object-position:center top">
+    </div>
+    """, unsafe_allow_html=True)
 
 COLORS = px.colors.qualitative.Set2
 
