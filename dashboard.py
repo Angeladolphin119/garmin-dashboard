@@ -355,9 +355,9 @@ if _bg:
         .stApp {{ background-color: #e8f4f8 !important; }}
     </style>
     <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;
-                pointer-events:none;z-index:0;overflow:hidden;opacity:0.22">
+                pointer-events:none;z-index:0;overflow:hidden;opacity:0.28">
         <img src="data:{_bg_mime};base64,{_bg}"
-             style="width:100%;height:100%;object-fit:cover;object-position:center top">
+             style="width:100%;height:100%;object-fit:cover;object-position:center 40%">
     </div>
     """, unsafe_allow_html=True)
 
