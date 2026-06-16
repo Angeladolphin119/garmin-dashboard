@@ -777,11 +777,13 @@ def fetch_company_detail(ticker: str, period: str) -> dict:
     import yfinance as yf
     tk = yf.Ticker(ticker)
     hist_records = []
+    _intervals = {"5d": "1h", "1mo": "1d", "3mo": "1d", "1y": "1wk", "5y": "1mo"}
     try:
-        h = tk.history(period=period)
+        h = tk.history(period=period, interval=_intervals.get(period, "1d"))
         if not h.empty:
-            tmp = h.reset_index()[["Date", "Close", "High", "Low", "Volume"]].copy()
-            tmp["Date"] = tmp["Date"].dt.strftime("%Y-%m-%d")
+            cols = [c for c in ["Date", "Open", "High", "Low", "Close", "Volume"] if c in h.reset_index().columns]
+            tmp = h.reset_index()[cols].copy()
+            tmp["Date"] = tmp["Date"].dt.strftime("%Y-%m-%d %H:%M")
             hist_records = tmp.to_dict("records")
     except Exception:
         pass
@@ -1136,10 +1138,35 @@ def _show_company_detail(ticker: str):
     if data["hist"]:
         hdf = pd.DataFrame(data["hist"])
         hdf["Date"] = pd.to_datetime(hdf["Date"])
-        fig = px.area(hdf, x="Date", y="Close",
-                      title=f"{ticker} — {info.get('shortName', ticker)} — Vývoj ceny / Price",
-                      color_discrete_sequence=["#5a3520"])
-        fig.update_layout(height=300, showlegend=False)
+        has_ohlc = all(c in hdf.columns for c in ["Open", "High", "Low", "Close"])
+        title_str = f"{ticker} — {info.get('shortName', ticker)} — K-line / Vývoj ceny"
+
+        if has_ohlc:
+            from plotly.subplots import make_subplots
+            rows = 2 if "Volume" in hdf.columns else 1
+            row_h = [0.72, 0.28] if rows == 2 else [1]
+            fig = make_subplots(rows=rows, cols=1, shared_xaxes=True,
+                                row_heights=row_h, vertical_spacing=0.02,
+                                subplot_titles=[title_str, "Objem / Volume"] if rows == 2 else [title_str])
+            fig.add_trace(go.Candlestick(
+                x=hdf["Date"], open=hdf["Open"], high=hdf["High"],
+                low=hdf["Low"], close=hdf["Close"],
+                increasing_line_color="#2a7a4a", decreasing_line_color="#a83232",
+                name="Cena",
+            ), row=1, col=1)
+            if rows == 2:
+                colors = ["#2a7a4a" if (c >= o) else "#a83232"
+                          for c, o in zip(hdf["Close"], hdf["Open"])]
+                fig.add_trace(go.Bar(x=hdf["Date"], y=hdf["Volume"],
+                                     marker_color=colors, name="Objem"), row=2, col=1)
+            fig.update_layout(height=400, showlegend=False,
+                              xaxis_rangeslider_visible=False,
+                              plot_bgcolor="rgba(248,242,232,0.6)")
+            fig.update_yaxes(gridcolor="rgba(180,160,130,0.2)")
+        else:
+            fig = px.area(hdf, x="Date", y="Close", title=title_str,
+                          color_discrete_sequence=["#5a3520"])
+            fig.update_layout(height=300, showlegend=False)
         st.plotly_chart(fig, use_container_width=True)
 
     c1, c2, c3, c4, c5, c6 = st.columns(6)
@@ -1368,7 +1395,7 @@ def tab_briefing():
                 f"<small style='color:#8a5535'>{pub}{' · ' if pub and tstr else ''}{tstr}</small>",
                 unsafe_allow_html=True,
             )
-            st.divider()
+            st.markdown("<hr style='margin:3px 0 5px 0;border:none;border-top:1px solid #e0d5c5'>", unsafe_allow_html=True)
 
     if st.button("🔄 Obnoviť / Refresh", key="br_refresh"):
         st.cache_data.clear()
