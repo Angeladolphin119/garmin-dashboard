@@ -1,4 +1,4 @@
-import streamlit as st
+﻿import streamlit as st
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
@@ -14,8 +14,8 @@ st.set_page_config(
 
 st.markdown("""
 <style>
-    /* Aged-paper background */
-    .stApp { background-color: #f5eedc !important; }
+    /* Forest-morning background */
+    .stApp { background-color: #f0f4ee !important; }
     .stApp > header { background-color: transparent !important; }
     .main .block-container { position: relative; z-index: 1; }
 
@@ -43,416 +43,336 @@ st.markdown("""
 <div class="botanical-layer">
 <svg width="100%" height="100%" viewBox="0 0 1440 900"
      preserveAspectRatio="xMidYMid slice"
-     xmlns="http://www.w3.org/2000/svg" opacity="0.68">
+     xmlns="http://www.w3.org/2000/svg" opacity="0.70">
 <defs>
   <style>
-    /* Sepia ink palette */
-    .ink  { stroke:#3a2010; fill:none; stroke-linecap:round; stroke-linejoin:round; }
-    .ink2 { stroke:#5a3520; fill:none; stroke-linecap:round; stroke-linejoin:round; }
-    .wsh  { fill:rgba(195,160,110,0.18); stroke:#5a3520; stroke-width:0.7; }
-    .wsh2 { fill:rgba(195,160,110,0.28); stroke:#5a3520; stroke-width:0.5; }
-    .drk  { fill:#3a2010; stroke:none; }
-    .med  { fill:#5a3520; stroke:none; }
-    .lbl  { fill:#5a3520; font-family:Georgia,serif; font-size:9px; font-style:italic; }
-    .lbl2 { fill:#5a3520; font-family:Georgia,serif; font-size:7.5px; }
-    .lbl3 { fill:#8a5535; font-family:Georgia,serif; font-size:7px; }
-    .box  { fill:none; stroke:#5a3520; stroke-width:0.8; }
-    .msr  { stroke:#8a5535; stroke-width:0.7; fill:none; }
-    .leaf { fill:rgba(90,53,32,0.12); stroke:#5a3520; stroke-width:0.9; }
-    .vein { stroke:#5a3520; stroke-width:0.5; fill:none; opacity:0.6; }
-    .stem { stroke:#5a3520; stroke-width:1.4; fill:none; stroke-linecap:round; }
-    .pin  { fill:#6a4030; stroke:#3a2010; stroke-width:0.8; }
+    /* Japanese hand-drawn palette */
+    .tr   { fill:none; stroke:#2a4020; stroke-linecap:round; stroke-linejoin:round; }
+    .lf   { fill:#6a9050; stroke:#3a5828; stroke-width:0.6; }
+    .lf2  { fill:#8ab870; stroke:#4a6838; stroke-width:0.5; }
+    .lf3  { fill:#b0d090; stroke:#6a8850; stroke-width:0.4; }
+    .lf4  { fill:#4a6830; stroke:#2a4018; stroke-width:0.7; }
+    .stm  { fill:none; stroke:#3a5828; stroke-linecap:round; }
+    .msh  { fill:#d06840; stroke:#904828; stroke-width:0.9; stroke-linecap:round; }
+    .msh2 { fill:#f8c898; stroke:#d06840; stroke-width:0.6; }
+    .cl_s { fill:rgba(230,248,232,0.92); stroke:#5a9060; stroke-width:1.1; }
+    .cl_p { fill:#c8de50; stroke:#88a028; stroke-width:0.8; }
+    .cl_l { fill:#4a8038; stroke:#2a5820; stroke-width:1.0; }
+    .bt_h { fill:#161008; stroke:#080604; stroke-width:0.8; }
+    .bt_e { fill:#201808; stroke:#100804; stroke-width:0.7; }
+    .bt_l { fill:#382018; stroke:#180808; stroke-width:0.6; }
+    .ow_b { fill:#b88040; stroke:#7a5020; stroke-width:0.8; }
+    .ow_f { fill:#f0e8c0; stroke:#c8a860; stroke-width:0.6; }
+    .pd_w { fill:#f0f0ee; stroke:#c8c8c0; stroke-width:0.8; }
+    .pd_b { fill:#181818; stroke:#080808; stroke-width:0.5; }
+    .bam  { fill:#68a038; stroke:#3a6818; stroke-width:1.2; }
+    .bam2 { fill:#90c860; stroke:#5a8838; stroke-width:0.7; }
+    .rb_b { fill:#e8e0d8; stroke:#a09080; stroke-width:0.7; }
+    .rb_i { fill:#f4c8c0; stroke:#d8a098; stroke-width:0.5; }
+    .fx   { fill:#d07030; stroke:#904820; stroke-width:0.7; }
+    .fx_w { fill:#f4ece8; stroke:#c8a890; stroke-width:0.5; }
+    .dw   { fill:rgba(180,225,215,0.45); stroke:rgba(120,180,165,0.55); stroke-width:0.6; }
+    .grd  { fill:rgba(120,165,85,0.12); stroke:none; }
   </style>
-  <!-- Faint aged-paper texture pattern -->
-  <pattern id="grain" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
-    <line x1="0" y1="40" x2="80" y2="40" stroke="#c8a878" stroke-width="0.3" opacity="0.18"/>
-    <line x1="40" y1="0" x2="40" y2="80" stroke="#c8a878" stroke-width="0.3" opacity="0.12"/>
-  </pattern>
 </defs>
 
-<!-- Subtle grid overlay (museum tray) -->
-<rect width="1440" height="900" fill="url(#grain)"/>
+<!-- Subtle meadow wash -->
+<ellipse cx="720" cy="920" rx="900" ry="140" class="grd"/>
+<ellipse cx="200" cy="892" rx="250" ry="80" class="grd" opacity="0.6"/>
+<ellipse cx="1280" cy="892" rx="220" ry="70" class="grd" opacity="0.6"/>
 
 
-<!-- ══════════════════════════════════════════════════════════
-     TOP-CENTER: Papilio machaon — hero pinned specimen
-     ══════════════════════════════════════════════════════════ -->
-<g transform="translate(720,155)">
-  <!-- pin -->
-  <line x1="0" y1="-120" x2="0" y2="-18" class="ink" stroke-width="0.9"/>
-  <circle cx="0" cy="-122" r="3.5" class="pin"/>
-  <!-- right upper forewing -->
-  <path class="wsh" d="M 2 -12 C 20 -50 68 -88 95 -80 C 118 -72 122 -44 110 -18 C 95 2 52 10 2 -12"/>
-  <!-- right upper forewing veins -->
-  <path class="vein" d="M 2 -12 C 35 -40 75 -62 95 -80"/>
-  <path class="vein" d="M 2 -12 C 28 -30 60 -38 85 -28"/>
-  <path class="vein" d="M 2 -12 C 18 -18 40 -12 65 -4"/>
-  <path class="vein" d="M 2 -12 C 40 -50 72 -78 110 -18"/>
-  <!-- right upper forewing dark border -->
-  <path fill="rgba(58,32,16,0.22)" stroke="none" d="M 95 -80 C 118 -72 122 -44 110 -18 C 100 -10 82 0 68 -2 C 90 -20 105 -50 95 -80"/>
-  <!-- right lower hindwing -->
-  <path class="wsh" d="M 2 -8 C 25 2 72 16 90 38 C 104 56 98 78 82 84 C 62 90 38 76 24 58 C 10 40 2 14 2 -8"/>
-  <!-- hindwing tail -->
-  <path class="wsh2" d="M 68 82 C 72 94 74 106 70 115 C 66 118 62 115 63 107 C 62 96 62 86 68 82"/>
-  <!-- right lower hindwing veins -->
-  <path class="vein" d="M 2 -8 C 40 20 75 55 82 84"/>
-  <path class="vein" d="M 2 -8 C 30 14 55 38 62 68"/>
-  <path class="vein" d="M 2 -8 C 18 8 32 26 38 50"/>
-  <!-- hindwing spots row -->
-  <circle cx="46" cy="72" r="5" fill="rgba(58,32,16,0.20)"/>
-  <circle cx="60" cy="68" r="4" fill="rgba(58,32,16,0.20)"/>
-  <circle cx="74" cy="60" r="3.5" fill="rgba(58,32,16,0.18)"/>
-  <!-- left upper forewing (mirror) -->
-  <path class="wsh" d="M -2 -12 C -20 -50 -68 -88 -95 -80 C -118 -72 -122 -44 -110 -18 C -95 2 -52 10 -2 -12"/>
-  <path class="vein" d="M -2 -12 C -35 -40 -75 -62 -95 -80"/>
-  <path class="vein" d="M -2 -12 C -28 -30 -60 -38 -85 -28"/>
-  <path class="vein" d="M -2 -12 C -18 -18 -40 -12 -65 -4"/>
-  <path class="vein" d="M -2 -12 C -40 -50 -72 -78 -110 -18"/>
-  <path fill="rgba(58,32,16,0.22)" stroke="none" d="M -95 -80 C -118 -72 -122 -44 -110 -18 C -100 -10 -82 0 -68 -2 C -90 -20 -105 -50 -95 -80"/>
-  <!-- left lower hindwing (mirror) -->
-  <path class="wsh" d="M -2 -8 C -25 2 -72 16 -90 38 C -104 56 -98 78 -82 84 C -62 90 -38 76 -24 58 C -10 40 -2 14 -2 -8"/>
-  <path class="wsh2" d="M -68 82 C -72 94 -74 106 -70 115 C -66 118 -62 115 -63 107 C -62 96 -62 86 -68 82"/>
-  <path class="vein" d="M -2 -8 C -40 20 -75 55 -82 84"/>
-  <path class="vein" d="M -2 -8 C -30 14 -55 38 -62 68"/>
-  <path class="vein" d="M -2 -8 C -18 8 -32 26 -38 50"/>
-  <circle cx="-46" cy="72" r="5" fill="rgba(58,32,16,0.20)"/>
-  <circle cx="-60" cy="68" r="4" fill="rgba(58,32,16,0.20)"/>
-  <circle cx="-74" cy="60" r="3.5" fill="rgba(58,32,16,0.18)"/>
-  <!-- body -->
-  <ellipse cx="0" cy="-4" rx="3.5" ry="28" fill="rgba(58,32,16,0.55)" stroke="#3a2010" stroke-width="0.8"/>
-  <!-- antennae -->
-  <path d="M -2 -26 Q -22 -80 -28 -112" class="ink2" stroke-width="0.9"/>
-  <path d="M  2 -26 Q  22 -80  28 -112" class="ink2" stroke-width="0.9"/>
-  <ellipse cx="-28" cy="-113" rx="3" ry="2" class="med" transform="rotate(-20,-28,-113)"/>
-  <ellipse cx=" 28" cy="-113" rx="3" ry="2" class="med" transform="rotate( 20, 28,-113)"/>
-  <!-- measurement bracket -->
-  <line x1="-122" y1="130" x2="122" y2="130" class="msr"/>
-  <line x1="-122" y1="125" x2="-122" y2="135" class="msr"/>
-  <line x1=" 122" y1="125" x2=" 122" y2="135" class="msr"/>
-  <text x="0" y="127" class="lbl3" text-anchor="middle">← 82 mm →</text>
-  <!-- collection number box -->
-  <rect x="-76" y="-138" width="36" height="14" class="box"/>
-  <text x="-58" y="-128" class="lbl2" text-anchor="middle">No. 001</text>
-  <!-- label lines -->
-  <line x1="0" y1="138" x2="0" y2="155" class="msr"/>
-  <text x="0" y="168" class="lbl" text-anchor="middle">Papilio machaon Linnaeus, 1758</text>
-  <text x="0" y="179" class="lbl3" text-anchor="middle">Swallowtail Butterfly / Vidlochvost feniklový</text>
+<!-- ═══════════════════════════════════════════
+     LEFT: Forest tree with owl (日系手繪)
+     ═══════════════════════════════════════════ -->
+<g transform="translate(88,0)">
+  <path class="tr" stroke-width="14" d="M 0 910 C 4 780 -6 650 2 500 C 8 380 -4 260 12 110 C 16 65 14 28 16 0"/>
+  <path stroke="#2a4020" stroke-width="1.0" fill="none" d="M -4 760 Q 7 755 3 746"/>
+  <path stroke="#2a4020" stroke-width="1.0" fill="none" d="M -1 692 Q 9 688 5 679"/>
+  <path stroke="#2a4020" stroke-width="1.0" fill="none" d="M  3 624 Q 13 620 9 611"/>
+  <path stroke="#2a4020" stroke-width="0.8" fill="none" d="M -2 555 Q 8 552 4 543"/>
+  <path class="tr" stroke-width="7" d="M 2 480 C -28 442 -68 405 -96 365"/>
+  <path class="tr" stroke-width="5" d="M -96 365 C -122 330 -130 298 -118 268"/>
+  <path class="tr" stroke-width="4" d="M -96 365 C -75 342 -58 318 -48 288"/>
+  <path class="tr" stroke-width="7" d="M 6 420 C 38 382 78 348 108 318"/>
+  <path class="tr" stroke-width="4" d="M 108 318 C 130 298 138 278 132 252"/>
+  <path class="tr" stroke-width="3" d="M 108 318 C 118 304 132 290 148 274"/>
+  <path class="tr" stroke-width="5" d="M 10 300 C -18 265 -38 235 -28 205"/>
+  <path class="tr" stroke-width="4" d="M 10 300 C 38 268 58 242 72 218"/>
+  <ellipse cx="-120" cy="262" rx="36" ry="26" class="lf"  transform="rotate(-12,-120,262)"/>
+  <ellipse cx="-102" cy="246" rx="28" ry="20" class="lf2" transform="rotate(10,-102,246)"/>
+  <ellipse cx="-138" cy="278" rx="24" ry="17" class="lf3" transform="rotate(-28,-138,278)"/>
+  <ellipse cx="-56"  cy="282" rx="24" ry="17" class="lf"  transform="rotate(22,-56,282)"/>
+  <ellipse cx="135"  cy="246" rx="34" ry="24" class="lf2" transform="rotate(14,135,246)"/>
+  <ellipse cx="150"  cy="268" rx="24" ry="17" class="lf3" transform="rotate(32,150,268)"/>
+  <ellipse cx="118"  cy="234" rx="28" ry="20" class="lf"  transform="rotate(-8,118,234)"/>
+  <ellipse cx="74"   cy="212" rx="28" ry="20" class="lf2" transform="rotate(24,74,212)"/>
+  <ellipse cx="-28"  cy="196" rx="34" ry="24" class="lf"  transform="rotate(-6,-28,196)"/>
+  <ellipse cx="-10"  cy="178" rx="26" ry="18" class="lf2" transform="rotate(14,-10,178)"/>
+  <ellipse cx="14"   cy="88"  rx="42" ry="30" class="lf2" transform="rotate(-2,14,88)"/>
+  <ellipse cx="-10"  cy="72"  rx="32" ry="23" class="lf"  transform="rotate(-18,-10,72)"/>
+  <ellipse cx="36"   cy="70"  rx="28" ry="20" class="lf3" transform="rotate(18,36,70)"/>
+  <ellipse cx="16"   cy="50"  rx="24" ry="17" class="lf4" transform="rotate(-8,16,50)"/>
+  <path class="msh" d="M -30 872 C -30 856 -18 848 -16 854 C -14 848 -2 856 -2 872"/>
+  <rect x="-22" y="867" width="13" height="20" class="msh2" rx="2"/>
+  <circle cx="-16" cy="852" r="2.2" fill="rgba(255,255,255,0.5)"/>
+  <circle cx="-10" cy="856" r="1.5" fill="rgba(255,255,255,0.4)"/>
+  <path class="msh" d="M -52 880 C -52 866 -42 860 -40 864 C -38 860 -28 866 -28 880" opacity="0.8"/>
+  <rect x="-46" y="875" width="11" height="16" class="msh2" rx="2" opacity="0.8"/>
+  <path class="stm" stroke-width="1.3" d="M -65 910 C -62 892 -54 878 -44 862"/>
+  <ellipse cx="-42" cy="860" rx="11" ry="6" class="lf3" transform="rotate(-28,-42,860)"/>
+  <path class="stm" stroke-width="1.3" d="M -85 910 C -80 888 -70 870 -58 852"/>
+  <ellipse cx="-55" cy="850" rx="9"  ry="5"  class="lf2" transform="rotate(25,-55,850)"/>
+  <path class="stm" stroke-width="1.1" d="M -48 910 C -46 898 -40 886 -34 874"/>
+  <ellipse cx="-32" cy="872" rx="8"  ry="5"  class="lf3" transform="rotate(-15,-32,872)"/>
 </g>
 
-<!-- ══════════════════════════════════════════════════════════
-     LEFT: Rosa canina botanical branch
-     ══════════════════════════════════════════════════════════ -->
-<g transform="translate(62,340)">
-  <!-- main stem with slight curve -->
-  <path class="stem" d="M -20 280 C -10 220 0 150 18 80 C 28 30 42 -18 55 -60"/>
-  <!-- thorn marks -->
-  <path class="ink2" stroke-width="1.2" d="M 0 220 L -8 212"/>
-  <path class="ink2" stroke-width="1.2" d="M 8 180 L 16 172"/>
-  <path class="ink2" stroke-width="1.2" d="M 2 140 L -8 132"/>
-  <!-- compound leaf set 1 (low) — 5 leaflets -->
-  <path class="stem" d="M -5 240 C -22 228 -40 220 -52 210"/>
-  <path class="leaf" d="M -52 210 C -70 196 -72 176 -58 172 C -44 170 -36 186 -52 210"/>
-  <path class="vein" d="M -52 210 C -60 196 -62 180 -58 172"/>
-  <path class="leaf" d="M -34 220 C -48 206 -48 186 -34 184 C -22 184 -16 200 -34 220"/>
-  <path class="vein" d="M -34 220 C -38 208 -38 192 -34 184"/>
-  <path class="leaf" d="M -18 228 C -28 214 -26 196 -12 196 C -2 198 2 214 -18 228"/>
-  <!-- compound leaf set 2 (mid) -->
-  <path class="stem" d="M 10 160 C 28 148 50 140 64 130"/>
-  <path class="leaf" d="M 64 130 C 82 116 84 96 70 92 C 56 90 48 106 64 130"/>
-  <path class="vein" d="M 64 130 C 72 116 74 100 70 92"/>
-  <path class="leaf" d="M 46 138 C 62 124 62 104 48 102 C 36 102 30 118 46 138"/>
-  <path class="vein" d="M 46 138 C 52 126 52 110 48 102"/>
-  <path class="leaf" d="M 30 146 C 44 132 44 114 30 112 C 18 114 14 130 30 146"/>
-  <!-- compound leaf set 3 (high) -->
-  <path class="stem" d="M 28 80 C 14 68 -4 56 -16 44"/>
-  <path class="leaf" d="M -16 44 C -32 28 -30 10 -16 8 C -4 8 4 26 -16 44"/>
-  <path class="vein" d="M -16 44 C -24 30 -22 14 -16 8"/>
-  <path class="leaf" d="M 2 54 C -10 38 -8 20 6 20 C 18 22 22 40 2 54"/>
-  <!-- rose flower (5 petals, open) -->
-  <g transform="translate(55,-62)">
-    <path class="wsh2" d="M 0 0 C -14 -16 -18 -36 -6 -42 C 6 -46 16 -32 0 0"/>
-    <path class="wsh2" d="M 0 0 C 14 -16 18 -36 6 -42 C -6 -46 -16 -32 0 0"/>
-    <path class="wsh2" d="M 0 0 C 20 -8 38 -4 36 10 C 34 22 18 22 0 0"/>
-    <path class="wsh2" d="M 0 0 C -20 -8 -38 -4 -36 10 C -34 22 -18 22 0 0"/>
-    <path class="wsh2" d="M 0 0 C 4 20 16 32 6 40 C -4 46 -14 34 0 0"/>
-    <!-- stamens -->
-    <circle cx="0" cy="-2" r="8" fill="rgba(90,53,32,0.18)" stroke="#5a3520" stroke-width="0.7"/>
-    <line x1="-5" y1="-6" x2="-7" y2="-14" class="ink2" stroke-width="0.6"/>
-    <line x1="0"  y1="-6" x2="0"  y2="-15" class="ink2" stroke-width="0.6"/>
-    <line x1="5"  y1="-6" x2="7"  y2="-14" class="ink2" stroke-width="0.6"/>
-    <circle cx="-7" cy="-14" r="1.2" class="med"/>
-    <circle cx=" 0" cy="-15" r="1.2" class="med"/>
-    <circle cx=" 7" cy="-14" r="1.2" class="med"/>
-  </g>
-  <!-- rose hip (oval fruit) -->
-  <ellipse cx="-8" cy="268" rx="8" ry="12" fill="rgba(90,53,32,0.20)" stroke="#5a3520" stroke-width="0.9"/>
-  <path class="stem" d="M -8 256 C -10 260 -10 264 -8 268"/>
-  <!-- label -->
-  <text x="72" y="270" class="lbl" text-anchor="start">Rosa canina L.</text>
-  <line x1="55" y1="265" x2="70" y2="268" class="msr"/>
+<!-- OWL on left branch -->
+<g transform="translate(12,348)">
+  <ellipse cx="0" cy="0" rx="22" ry="28" class="ow_b"/>
+  <path stroke="#7a5020" stroke-width="0.7" fill="none" d="M -18 -8 Q -10 -6 -18 2"/>
+  <path stroke="#7a5020" stroke-width="0.7" fill="none" d="M -18  4 Q -10  6 -18 14"/>
+  <path stroke="#7a5020" stroke-width="0.7" fill="none" d="M  18 -8 Q  10 -6  18 2"/>
+  <path stroke="#7a5020" stroke-width="0.7" fill="none" d="M  18  4 Q  10  6  18 14"/>
+  <ellipse cx="0" cy="-5" rx="15" ry="14" class="ow_f"/>
+  <path class="ow_b" d="M -8 -18 C -10 -28 -6 -34 -4 -27 C -2 -20 -4 -16 -8 -18"/>
+  <path class="ow_b" d="M  8 -18 C  10 -28  6 -34  4 -27 C  2 -20  4 -16  8 -18"/>
+  <circle cx="-6" cy="-7" r="6.5" fill="#e8c028" stroke="#a07820" stroke-width="0.8"/>
+  <circle cx=" 6" cy="-7" r="6.5" fill="#e8c028" stroke="#a07820" stroke-width="0.8"/>
+  <circle cx="-5" cy="-7" r="3.8" fill="#181808"/>
+  <circle cx=" 7" cy="-7" r="3.8" fill="#181808"/>
+  <circle cx="-4" cy="-8.5" r="1.3" fill="white"/>
+  <circle cx=" 8" cy="-8.5" r="1.3" fill="white"/>
+  <path fill="#c8a038" d="M -3 0 Q 0 5 3 0 Q 0 2 -3 0"/>
+  <path stroke="#7a5020" stroke-width="1.5" fill="none" d="M -8 27 Q -10 33 -15 37"/>
+  <path stroke="#7a5020" stroke-width="1.5" fill="none" d="M -8 27 Q  -8 35  -8 39"/>
+  <path stroke="#7a5020" stroke-width="1.5" fill="none" d="M  8 27 Q  10 33  15 37"/>
+  <path stroke="#7a5020" stroke-width="1.5" fill="none" d="M  8 27 Q   8 35   8 39"/>
 </g>
 
-<!-- ══════════════════════════════════════════════════════════
-     RIGHT: Lucanus cervus — stag beetle pinned specimen
-     ══════════════════════════════════════════════════════════ -->
-<g transform="translate(1270,310)">
-  <!-- pin -->
-  <line x1="0" y1="-88" x2="0" y2="-38" class="ink" stroke-width="0.9"/>
-  <circle cx="0" cy="-90" r="3.5" class="pin"/>
-  <!-- mandibles (large, curved outward) -->
-  <path class="wsh2" d="M -8 -32 C -22 -44 -46 -48 -52 -36 C -56 -26 -48 -12 -32 -10 C -20 -8 -8 -18 -8 -32"/>
-  <path class="vein" d="M -8 -32 C -28 -40 -48 -40 -52 -36"/>
-  <path class="wsh2" d="M  8 -32 C  22 -44  46 -48  52 -36 C  56 -26  48 -12  32 -10 C  20 -8  8 -18  8 -32"/>
-  <path class="vein" d="M  8 -32 C  28 -40  48 -40  52 -36"/>
-  <!-- small tooth on mandibles -->
-  <path class="ink2" stroke-width="1" d="M -30 -36 L -34 -28"/>
-  <path class="ink2" stroke-width="1" d="M  30 -36 L  34 -28"/>
-  <!-- head -->
-  <ellipse cx="0" cy="-20" rx="14" ry="11" fill="rgba(58,32,16,0.38)" stroke="#3a2010" stroke-width="1"/>
-  <!-- compound eyes -->
-  <ellipse cx="-12" cy="-22" rx="4" ry="5" class="drk" opacity="0.7"/>
-  <ellipse cx=" 12" cy="-22" rx="4" ry="5" class="drk" opacity="0.7"/>
-  <!-- antennae (elbowed) -->
-  <path class="ink2" stroke-width="0.8" d="M -8 -28 Q -20 -42 -18 -52 Q -14 -60 -10 -62"/>
-  <path class="ink2" stroke-width="0.8" d="M  8 -28 Q  20 -42  18 -52 Q  14 -60  10 -62"/>
-  <!-- pronotum (thorax shield) -->
-  <path class="wsh2" d="M -18 -10 C -20 -2 -18 8 0 10 C 18 8 20 -2 18 -10 C 14 -16 -14 -16 -18 -10"/>
-  <!-- elytra (wing covers) -->
-  <path class="wsh" d="M -18 8 C -22 20 -20 50 -16 72 C -12 84 -6 90 0 90 C 6 90 12 84 16 72 C 20 50 22 20 18 8 C 14 4 -14 4 -18 8"/>
-  <!-- elytra suture line -->
-  <line x1="0" y1="8" x2="0" y2="90" class="ink2" stroke-width="0.8"/>
-  <!-- elytra texture lines -->
-  <path class="vein" d="M -14 16 Q -10 50 -8 80"/>
-  <path class="vein" d="M  14 16 Q  10 50  8 80"/>
-  <!-- legs (3 pairs) -->
-  <path class="ink2" stroke-width="1.1" d="M -16 0 C -28 -2 -42 8 -48 18"/>
-  <path class="ink2" stroke-width="1.1" d="M  16 0 C  28 -2  42 8  48 18"/>
-  <path class="ink2" stroke-width="1.1" d="M -18 20 C -32 24 -46 38 -50 48"/>
-  <path class="ink2" stroke-width="1.1" d="M  18 20 C  32 24  46 38  50 48"/>
-  <path class="ink2" stroke-width="1.1" d="M -18 42 C -34 50 -46 64 -48 76"/>
-  <path class="ink2" stroke-width="1.1" d="M  18 42 C  34 50  46 64  48 76"/>
-  <!-- tarsal claws -->
-  <path class="ink" stroke-width="0.7" d="M -48 18 L -54 22 M -48 18 L -52 24"/>
-  <path class="ink" stroke-width="0.7" d="M  48 18 L  54 22 M  48 18 L  52 24"/>
-  <!-- measurement -->
-  <line x1="-60" y1="104" x2="60" y2="104" class="msr"/>
-  <line x1="-60" y1="99" x2="-60" y2="109" class="msr"/>
-  <line x1=" 60" y1="99" x2=" 60" y2="109" class="msr"/>
-  <text x="0" y="101" class="lbl3" text-anchor="middle">← 65 mm →</text>
-  <!-- label -->
-  <rect x="-52" y="-108" width="38" height="14" class="box"/>
-  <text x="-33" y="-98" class="lbl2" text-anchor="middle">No. 002</text>
-  <line x1="0" y1="112" x2="0" y2="126" class="msr"/>
-  <text x="0" y="138" class="lbl" text-anchor="middle">Lucanus cervus Linnaeus, 1758</text>
-  <text x="0" y="149" class="lbl3" text-anchor="middle">Stag Beetle / Roháč obyčajný</text>
+<!-- ═══════════════════════════════════════════
+     RHINOCEROS BEETLE (独角仙) — center hero
+     ═══════════════════════════════════════════ -->
+<g transform="translate(720,135)">
+  <path class="cl_l" d="M -90 90 C -68 72 0 68 68 78 C 88 85 80 102 56 100 C 32 96 -32 96 -60 100 C -84 103 -96 97 -90 90"/>
+  <path stroke="#2a5820" stroke-width="0.7" fill="none" d="M -25 88 Q -55 100 -75 100"/>
+  <path stroke="#2a5820" stroke-width="0.7" fill="none" d="M  8 86 Q  -8  98 -20 100"/>
+  <path stroke="#2a5820" stroke-width="0.7" fill="none" d="M 38 88 Q  28  98  18 100"/>
+  <path class="bt_h" d="M -6 -52 C -10 -76 -6 -115 4 -140 C 8 -150 14 -140 10 -122 C 14 -138 22 -145 24 -132 C 22 -116 10 -94 8 -72 C 6 -64 -2 -56 -6 -52"/>
+  <path class="bt_h" d="M 12 -42 C 16 -56 22 -64 24 -72 C 28 -78 30 -70 26 -62 C 22 -54 18 -48 12 -42"/>
+  <ellipse cx="4" cy="-32" rx="20" ry="15" class="bt_h"/>
+  <circle cx="-12" cy="-34" r="5.5" fill="#382018" stroke="#080808" stroke-width="0.6"/>
+  <circle cx=" 18" cy="-34" r="5.5" fill="#382018" stroke="#080808" stroke-width="0.6"/>
+  <circle cx="-11" cy="-35" r="2.2" fill="#907060" opacity="0.5"/>
+  <circle cx=" 19" cy="-35" r="2.2" fill="#907060" opacity="0.5"/>
+  <path class="bt_e" d="M -24 -18 C -28 -8 -26 6 -22 14 C -18 20 18 20 22 14 C 26 6 28 -8 24 -18 C 18 -26 -18 -26 -24 -18"/>
+  <path class="bt_e" d="M -24 12 C -28 30 -26 58 -20 75 C -16 84 -4 88 0 88 C 4 88 16 84 20 75 C 26 58 28 30 24 12 C 16 5 -16 5 -24 12"/>
+  <line x1="0" y1="12" x2="0" y2="88" stroke="#080808" stroke-width="1.2"/>
+  <circle cx="-13" cy="28"  r="1.8" fill="#080808" opacity="0.4"/>
+  <circle cx="-11" cy="46"  r="1.8" fill="#080808" opacity="0.4"/>
+  <circle cx=" -9" cy="64"  r="1.8" fill="#080808" opacity="0.4"/>
+  <circle cx=" 13" cy="28"  r="1.8" fill="#080808" opacity="0.4"/>
+  <circle cx=" 11" cy="46"  r="1.8" fill="#080808" opacity="0.4"/>
+  <circle cx="  9" cy="64"  r="1.8" fill="#080808" opacity="0.4"/>
+  <path fill="rgba(255,255,255,0.16)" stroke="none" d="M -18 14 C -20 24 -18 40 -12 44 C -8 42 -10 26 -12 14 C -14 10 -18 12 -18 14"/>
+  <path class="bt_l" stroke-width="2.2" stroke-linecap="round" d="M -22 -12 C -40 -16 -56 -8 -66 0"/>
+  <path class="bt_l" stroke-width="2.2" stroke-linecap="round" d="M  22 -12 C  40 -16  56 -8  66 0"/>
+  <path class="bt_l" stroke-width="2.2" stroke-linecap="round" d="M -24  4  C -44  8 -62 20 -70 32"/>
+  <path class="bt_l" stroke-width="2.2" stroke-linecap="round" d="M  24  4  C  44  8  62 20  70 32"/>
+  <path class="bt_l" stroke-width="2.0" stroke-linecap="round" d="M -22 20 C -42 30 -58 48 -64 62"/>
+  <path class="bt_l" stroke-width="2.0" stroke-linecap="round" d="M  22 20 C  42 30  58 48  64 62"/>
+  <path stroke="#080808" stroke-width="1.5" fill="none" stroke-linecap="round" d="M -66 0 L -73 5 M -66 0 L -71 -6"/>
+  <path stroke="#080808" stroke-width="1.5" fill="none" stroke-linecap="round" d="M  66 0 L  73 5 M  66 0 L  71 -6"/>
+  <path stroke="#080808" stroke-width="1.5" fill="none" stroke-linecap="round" d="M -70 32 L -78 36 M -70 32 L -76 26"/>
+  <path stroke="#080808" stroke-width="1.5" fill="none" stroke-linecap="round" d="M  70 32 L  78 36 M  70 32 L  76 26"/>
+  <text x="0" y="120" font-family="serif" font-size="8.5" fill="#4a6830" text-anchor="middle" font-style="italic">Allomyrina dichotoma　独角仙</text>
 </g>
 
-<!-- ══════════════════════════════════════════════════════════
-     TOP-RIGHT: Aeshna cyanea — dragonfly pinned
-     ══════════════════════════════════════════════════════════ -->
-<g transform="translate(1120,88) rotate(-18)">
-  <!-- pin -->
-  <line x1="0" y1="-70" x2="0" y2="-20" class="ink" stroke-width="0.8"/>
-  <circle cx="0" cy="-72" r="3" class="pin"/>
-  <!-- head (large, round, compound eyes) -->
-  <circle cx="0" cy="-14" r="10" fill="rgba(58,32,16,0.32)" stroke="#3a2010" stroke-width="0.9"/>
-  <ellipse cx="-6" cy="-16" rx="5" ry="6" class="drk" opacity="0.55"/>
-  <ellipse cx=" 6" cy="-16" rx="5" ry="6" class="drk" opacity="0.55"/>
-  <!-- thorax -->
-  <ellipse cx="0" cy="2" rx="9" ry="12" fill="rgba(58,32,16,0.32)" stroke="#3a2010" stroke-width="0.9"/>
-  <!-- abdomen (10 segments, tapering) -->
-  <path class="wsh" d="M -7 12 C -8 22 -7 32 -5 40 C -3 50 0 56 0 56 C 0 56 3 50 5 40 C 7 32 8 22 7 12 C 4 10 -4 10 -7 12"/>
-  <line x1="-6" y1="18" x2="6" y2="18" class="vein"/>
-  <line x1="-6" y1="24" x2="6" y2="24" class="vein"/>
-  <line x1="-5" y1="30" x2="5" y2="30" class="vein"/>
-  <line x1="-5" y1="36" x2="5" y2="36" class="vein"/>
-  <line x1="-4" y1="42" x2="4" y2="42" class="vein"/>
-  <line x1="-4" y1="48" x2="4" y2="48" class="vein"/>
-  <!-- tip -->
-  <ellipse cx="0" cy="60" rx="3" ry="5" fill="rgba(58,32,16,0.40)" stroke="#3a2010" stroke-width="0.7"/>
-  <!-- upper wings (pair) with venation network -->
-  <path class="wsh" d="M -8 2 C -30 -8 -72 -12 -80 0 C -86 10 -72 20 -48 20 C -28 20 -10 12 -8 2"/>
-  <path class="wsh" d="M  8 2 C  30 -8  72 -12  80 0 C  86 10  72 20  48 20 C  28 20  10 12  8 2"/>
-  <!-- upper wing veins -->
-  <path class="vein" d="M -8 2 C -36 -4 -65 -8 -80 0"/>
-  <path class="vein" d="M -8 2 C -28 4 -50 8 -65 14"/>
-  <path class="vein" d="M -40 -6 L -42 14"/>
-  <path class="vein" d="M -58 -4 L -60 12"/>
-  <path class="vein" d="M  8 2 C  36 -4  65 -8  80 0"/>
-  <path class="vein" d="M  8 2 C  28 4  50 8  65 14"/>
-  <path class="vein" d="M  40 -6 L  42 14"/>
-  <path class="vein" d="M  58 -4 L  60 12"/>
-  <!-- lower wings -->
-  <path class="wsh" d="M -8 8 C -28 16 -65 24 -70 36 C -74 46 -60 52 -40 46 C -22 40 -8 24 -8 8"/>
-  <path class="wsh" d="M  8 8 C  28 16  65 24  70 36 C  74 46  60 52  40 46 C  22 40  8 24  8 8"/>
-  <path class="vein" d="M -8 8 C -36 20 -62 34 -70 36"/>
-  <path class="vein" d="M -40 22 L -44 44"/>
-  <path class="vein" d="M  8 8 C  36 20  62 34  70 36"/>
-  <path class="vein" d="M  40 22 L  44 44"/>
-  <!-- pterostigma (wing spot) -->
-  <rect x="-80" y="-4" width="10" height="5" fill="rgba(58,32,16,0.35)" stroke="#3a2010" stroke-width="0.5"/>
-  <rect x=" 70" y="-4" width="10" height="5" fill="rgba(58,32,16,0.35)" stroke="#3a2010" stroke-width="0.5"/>
-  <!-- collection tag -->
-  <rect x="-30" y="-94" width="36" height="14" class="box"/>
-  <text x="-12" y="-84" class="lbl2" text-anchor="middle">No. 003</text>
-  <!-- label (rotated back to read horizontally) -->
-  <g transform="rotate(18)">
-    <text x="88" y="10" class="lbl" text-anchor="start">Aeshna cyanea</text>
-    <text x="88" y="20" class="lbl3" text-anchor="start">Müller, 1764</text>
-  </g>
+<!-- ═══════════════════════════════════════════
+     CALLA LILY (海芋) cluster — bottom left
+     ═══════════════════════════════════════════ -->
+<g transform="translate(195,715)">
+  <path class="cl_l" d="M -80 185 C -56 148 -28 108 22 62 C 52 40 72 50 64 72 C 54 94 12 114 -20 145 C -50 175 -68 184 -80 185"/>
+  <path stroke="#2a5820" stroke-width="0.8" fill="none" d="M -80 185 C -50 158 -8 118 32 80"/>
+  <path stroke="#4a7835" stroke-width="0.5" fill="none" d="M -32 162 C -22 144  2 122 22 102"/>
+  <path stroke="#4a7835" stroke-width="0.5" fill="none" d="M -58 174 C -46 156 -24 132 -4 112"/>
+  <path stroke="#3a6025" stroke-width="5" fill="none" stroke-linecap="round" d="M -8 185 C -6 162 -3 140 2 118 C 7 96 10 76 12 55"/>
+  <path class="cl_s" d="M 12 55 C -8 36 -18 16 -8 -4 C -3 -18 8 -23 15 -17 C 22 -11 28 2 30 22 C 34 43 32 58 12 55"/>
+  <path class="cl_p" d="M 14 50 C 16 36 18 18 17 2 C 16 -10 20 -14 22 -4 C 24 8 22 32 20 50"/>
+  <path stroke="#3a6025" stroke-width="4" fill="none" stroke-linecap="round" d="M 52 185 C 54 158 57 132 62 108 C 66 86 70 66 74 48"/>
+  <path class="cl_s" d="M 74 48 C 60 30 54 12 64 -6 C 70 -18 80 -22 86 -16 C 92 -9 94 6 92 26 C 90 46 86 56 74 48" transform="rotate(10,74,48)"/>
+  <path class="cl_p" d="M 78 44 C 80 26 82 10 80 -4 C 79 -14 84 -16 86 -6 C 88 6 86 28 82 44" transform="rotate(10,78,44)"/>
+  <path class="cl_l" d="M 105 185 C 126 154 136 112 124 76 C 118 56 102 50 92 63 C 82 76 90 112 94 144 C 97 168 100 180 105 185"/>
+  <path stroke="#2a5820" stroke-width="0.8" fill="none" d="M 105 185 C 110 154 114 116 106 80"/>
+  <circle cx="98"  cy="110" r="3.5" class="dw"/>
+  <circle cx="110" cy="132" r="2.8" class="dw"/>
+  <circle cx="-36" cy="148" r="3.0" class="dw"/>
+  <circle cx="18"  cy="170" r="2.5" class="dw"/>
 </g>
 
-<!-- ══════════════════════════════════════════════════════════
-     BOTTOM-LEFT: Dryopteris fern fronds
-     ══════════════════════════════════════════════════════════ -->
-<g transform="translate(50,780)">
-  <!-- frond 1 -->
-  <path class="stem" d="M 0 120 C 10 88 20 55 32 20 C 40 0 50 -20 58 -38"/>
-  <!-- pinnae (pairs along frond) -->
-  <path class="leaf" d="M 10 100 C 24 90 36 88 36 98 C 34 106 18 108 10 100"/>
-  <path class="vein" d="M 10 100 C 22 94 34 92 36 98"/>
-  <path class="leaf" d="M 8 100 C -4 92 -14 92 -12 102 C -10 110 4 110 8 100"/>
-  <path class="vein" d="M 8 100 C -2 94 -10 94 -12 102"/>
-  <path class="leaf" d="M 16 80 C 30 70 42 68 42 78 C 40 86 24 88 16 80"/>
-  <path class="leaf" d="M 14 80 C 2 72 -8 72 -6 82 C -4 90 10 90 14 80"/>
-  <path class="leaf" d="M 22 60 C 36 50 48 48 48 58 C 46 66 30 68 22 60"/>
-  <path class="leaf" d="M 20 60 C 8 52 -2 52 0 62 C 2 70 18 70 20 60"/>
-  <path class="leaf" d="M 30 40 C 44 30 54 30 52 40 C 50 48 36 50 30 40"/>
-  <path class="leaf" d="M 28 40 C 18 32 8 34 10 44 C 12 52 26 50 28 40"/>
-  <path class="leaf" d="M 38 20 C 50 12 58 12 56 22 C 54 30 42 32 38 20"/>
-  <path class="leaf" d="M 36 20 C 28 12 18 14 20 24 C 22 32 34 30 36 20"/>
-  <!-- frond 2 (angled) -->
-  <path class="stem" d="M 0 120 C 24 100 48 72 72 42 C 86 26 100 10 112 -6" opacity="0.75"/>
-  <path class="leaf" d="M 38 90 C 52 78 66 76 66 88 C 62 96 46 98 38 90" opacity="0.75"/>
-  <path class="leaf" d="M 36 90 C 24 82 12 84 14 94 C 16 102 32 100 36 90" opacity="0.75"/>
-  <path class="leaf" d="M 62 66 C 76 54 90 52 90 64 C 86 72 70 74 62 66" opacity="0.68"/>
-  <path class="leaf" d="M 60 66 C 50 58 38 60 40 70 C 42 78 58 76 60 66" opacity="0.68"/>
-  <path class="leaf" d="M 84 44 C 96 34 108 32 106 44 C 104 52 90 54 84 44" opacity="0.62"/>
-  <!-- sori dots (spore clusters on underside — shown as tiny dots) -->
-  <circle cx="28" cy="96" r="1.2" class="med" opacity="0.5"/>
-  <circle cx="25" cy="88" r="1.2" class="med" opacity="0.5"/>
-  <circle cx="32" cy="72" r="1.2" class="med" opacity="0.5"/>
+<!-- RABBIT near calla lily -->
+<g transform="translate(100,808)">
+  <ellipse cx="0"  cy="0"   rx="24" ry="20" class="rb_b"/>
+  <ellipse cx="14" cy="-22" rx="17" ry="15" class="rb_b"/>
+  <path class="rb_b" d="M  7 -35 C  5 -58  7 -72 10 -70 C 13 -67 13 -54 11 -36"/>
+  <path class="rb_i" d="M  8 -36 C  7 -54  8 -67 10 -65 C 12 -62 11 -52 11 -36"/>
+  <path class="rb_b" d="M 20 -35 C 20 -58 24 -72 26 -68 C 28 -64 26 -52 24 -36"/>
+  <path class="rb_i" d="M 21 -36 C 21 -54 24 -66 26 -63 C 27 -60 25 -50 24 -36"/>
+  <circle cx="16" cy="-24" r="3.2" fill="#181818"/>
+  <circle cx="17" cy="-25" r="1.1" fill="white"/>
+  <circle cx="24" cy="-17" r="2.2" fill="#e0a0a0"/>
+  <path stroke="#888080" stroke-width="0.5" fill="none" d="M 24 -18 Q 36 -20 42 -19"/>
+  <path stroke="#888080" stroke-width="0.5" fill="none" d="M 24 -17 Q 36 -14 42 -12"/>
+  <path stroke="#888080" stroke-width="0.5" fill="none" d="M 24 -18 Q 14 -20  8 -19"/>
+  <circle cx="-22" cy="5" r="10" class="rb_b"/>
+  <ellipse cx="18" cy="16" rx="9" ry="5" class="rb_b"/>
 </g>
 
-<!-- ══════════════════════════════════════════════════════════
-     BOTTOM-RIGHT: Apis mellifera — bee specimen
-     ══════════════════════════════════════════════════════════ -->
-<g transform="translate(1060,810)">
-  <!-- pin -->
-  <line x1="0" y1="-72" x2="0" y2="-30" class="ink" stroke-width="0.8"/>
-  <circle cx="0" cy="-74" r="3" class="pin"/>
-  <!-- head -->
-  <circle cx="0" cy="-22" r="12" fill="rgba(58,32,16,0.28)" stroke="#3a2010" stroke-width="0.9"/>
-  <!-- compound eyes -->
-  <ellipse cx="-8" cy="-24" rx="5" ry="6" class="drk" opacity="0.5"/>
-  <ellipse cx=" 8" cy="-24" rx="5" ry="6" class="drk" opacity="0.5"/>
-  <!-- antennae (elbowed) -->
-  <path class="ink2" stroke-width="0.8" d="M -4 -32 Q -14 -48 -12 -60"/>
-  <path class="ink2" stroke-width="0.8" d="M  4 -32 Q  14 -48  12 -60"/>
-  <!-- thorax (fuzzy — shown with short hatch lines) -->
-  <ellipse cx="0" cy="-6" rx="12" ry="14" fill="rgba(58,32,16,0.30)" stroke="#3a2010" stroke-width="0.9"/>
-  <path class="vein" d="M -10 -10 Q 0 -12 10 -10"/>
-  <path class="vein" d="M -11 -6  Q 0 -8  11 -6"/>
-  <path class="vein" d="M -11 -2  Q 0 -4  11 -2"/>
-  <path class="vein" d="M -10  2  Q 0  0  10  2"/>
-  <!-- abdomen (striped) -->
-  <ellipse cx="0" cy="22" rx="11" ry="20" fill="rgba(58,32,16,0.18)" stroke="#3a2010" stroke-width="0.9"/>
-  <!-- stripes as filled bands -->
-  <path fill="rgba(58,32,16,0.30)" stroke="none" d="M -10 14 Q 0 12 10 14 Q 10 18 0 18 Q -10 18 -10 14"/>
-  <path fill="rgba(58,32,16,0.30)" stroke="none" d="M -11 22 Q 0 20 11 22 Q 11 26 0 26 Q -11 26 -11 22"/>
-  <path fill="rgba(58,32,16,0.30)" stroke="none" d="M -10 30 Q 0 28 10 30 Q 10 34 0 34 Q -10 34 -10 30"/>
-  <!-- stinger tip -->
-  <path class="ink2" stroke-width="0.8" d="M 0 40 Q 0 46 0 50"/>
-  <!-- wings -->
-  <path class="wsh" d="M -10 -8 C -30 -16 -62 -10 -64 2 C -64 12 -48 18 -28 14 C -14 10 -8 4 -10 -8"/>
-  <path class="wsh" d="M  10 -8 C  30 -16  62 -10  64 2 C  64 12  48 18  28 14 C  14 10  8 4  10 -8"/>
-  <path class="wsh" d="M -10 0 C -26 4 -50 12 -52 22 C -50 30 -36 30 -22 24 C -12 18 -8 8 -10 0"/>
-  <path class="wsh" d="M  10 0 C  26 4  50 12  52 22 C  50 30  36 30  22 24 C  12 18  8 8  10 0"/>
-  <!-- wing veins -->
-  <path class="vein" d="M -10 -8 C -36 -12 -60 -4 -64 2"/>
-  <path class="vein" d="M -36 -10 L -38 14"/>
-  <path class="vein" d="M  10 -8 C  36 -12  60 -4  64 2"/>
-  <path class="vein" d="M  36 -10 L  38 14"/>
-  <!-- legs -->
-  <path class="ink2" stroke-width="0.9" d="M -10 -8 C -18 -4 -26 6 -28 16"/>
-  <path class="ink2" stroke-width="0.9" d="M  10 -8 C  18 -4  26 6  28 16"/>
-  <path class="ink2" stroke-width="0.9" d="M -11 4 C -20 14 -28 28 -30 38"/>
-  <path class="ink2" stroke-width="0.9" d="M  11 4 C  20 14  28 28  30 38"/>
-  <!-- pollen basket on hind leg -->
-  <ellipse cx="-28" cy="38" rx="4" ry="6" fill="rgba(58,32,16,0.20)" stroke="#5a3520" stroke-width="0.7"/>
-  <!-- measurement -->
-  <line x1="-68" y1="62" x2="68" y2="62" class="msr"/>
-  <line x1="-68" y1="57" x2="-68" y2="67" class="msr"/>
-  <line x1=" 68" y1="57" x2=" 68" y2="67" class="msr"/>
-  <text x="0" y="59" class="lbl3" text-anchor="middle">← 15 mm →</text>
-  <!-- collection box -->
-  <rect x="-46" y="-92" width="36" height="14" class="box"/>
-  <text x="-28" y="-82" class="lbl2" text-anchor="middle">No. 004</text>
-  <line x1="0" y1="70" x2="0" y2="82" class="msr"/>
-  <text x="0" y="92" class="lbl" text-anchor="middle">Apis mellifera Linnaeus, 1758</text>
-  <text x="0" y="102" class="lbl3" text-anchor="middle">Honey Bee / Včela medonosná</text>
+<!-- ═══════════════════════════════════════════
+     RIGHT: Forest tree
+     ═══════════════════════════════════════════ -->
+<g transform="translate(1362,0)">
+  <path class="tr" stroke-width="16" d="M 0 910 C 4 780 -4 652 6 502 C 14 382 4 255 -6 108 C -10 62 -6 26 -2 0"/>
+  <path stroke="#2a4020" stroke-width="1.0" fill="none" d="M 2 762 Q 12 757 8 748"/>
+  <path stroke="#2a4020" stroke-width="1.0" fill="none" d="M -1 690 Q 10 686 6 677"/>
+  <path stroke="#2a4020" stroke-width="0.9" fill="none" d="M 2 620 Q 12 616 8 607"/>
+  <path class="tr" stroke-width="8" d="M 4 452 C -28 413 -64 378 -92 342"/>
+  <path class="tr" stroke-width="5" d="M -92 342 C -116 316 -122 286 -112 258"/>
+  <path class="tr" stroke-width="4" d="M -92 342 C  -72 320  -56 298  -46 272"/>
+  <path class="tr" stroke-width="6" d="M -1 382 C 22 352 48 332 60 312"/>
+  <path class="tr" stroke-width="5" d="M -3 284 C -28 252 -48 226 -38 198"/>
+  <path class="tr" stroke-width="4" d="M -3 284 C  18 256  38 236  44 208"/>
+  <ellipse cx="-114" cy="252" rx="36" ry="26" class="lf"  transform="rotate(-10,-114,252)"/>
+  <ellipse cx="-96"  cy="238" rx="28" ry="20" class="lf2" transform="rotate(14,-96,238)"/>
+  <ellipse cx="-130" cy="268" rx="24" ry="17" class="lf3" transform="rotate(-24,-130,268)"/>
+  <ellipse cx="-50"  cy="266" rx="26" ry="18" class="lf2" transform="rotate(20,-50,266)"/>
+  <ellipse cx="46"   cy="202" rx="32" ry="22" class="lf"  transform="rotate(14,46,202)"/>
+  <ellipse cx="62"   cy="306" rx="26" ry="18" class="lf2" transform="rotate(20,62,306)"/>
+  <ellipse cx="-40"  cy="192" rx="34" ry="24" class="lf"  transform="rotate(-7,-40,192)"/>
+  <ellipse cx="-20"  cy="176" rx="28" ry="20" class="lf2" transform="rotate(12,-20,176)"/>
+  <ellipse cx="-4"   cy="88"  rx="40" ry="28" class="lf2" transform="rotate(-4,-4,88)"/>
+  <ellipse cx="16"   cy="72"  rx="30" ry="21" class="lf3" transform="rotate(20,16,72)"/>
+  <ellipse cx="-22"  cy="70"  rx="26" ry="18" class="lf"  transform="rotate(-18,-22,70)"/>
+  <path class="msh" d="M 22 868 C 22 854 32 848 34 852 C 36 848 46 854 46 868"/>
+  <rect x="31" y="863" width="12" height="20" class="msh2" rx="2"/>
+  <circle cx="34" cy="850" r="2" fill="rgba(255,255,255,0.5)"/>
 </g>
 
-<!-- ══════════════════════════════════════════════════════════
-     SCATTERED: small field notes, leaf specimens, dots
-     ══════════════════════════════════════════════════════════ -->
-
-<!-- small isolated leaf specimen top-left (collected single leaf) -->
-<g transform="translate(320,220)">
-  <path class="stem" d="M 0 20 Q 0 10 0 -2"/>
-  <path class="leaf" d="M 0 -2 C -20 -18 -22 -42 -8 -46 C 4 -48 12 -32 0 -2"/>
-  <path class="vein" d="M 0 -2 C -10 -18 -14 -36 -8 -46"/>
-  <path class="vein" d="M -4 -20 L -14 -24"/>
-  <path class="vein" d="M -4 -30 L -16 -34"/>
+<!-- ═══════════════════════════════════════════
+     PANDA (動物園) with bamboo — bottom right
+     ═══════════════════════════════════════════ -->
+<g transform="translate(1222,782)">
+  <path class="bam" stroke-width="9"  d="M -55 118 C -53 80 -55 42 -53 0 C -51 -40 -55 -72 -54 -102"/>
+  <path stroke="#3a6818" stroke-width="1.2" fill="none" d="M -55 78 Q -44 74 -55 70"/>
+  <path stroke="#3a6818" stroke-width="1.2" fill="none" d="M -54 38 Q -43 34 -54 30"/>
+  <path stroke="#3a6818" stroke-width="1.2" fill="none" d="M -53 -2 Q -42 -6 -53 -10"/>
+  <path class="bam2" d="M -55 56 C -46 44 -30 42 -28 50 C -26 58 -40 62 -55 56"/>
+  <path class="bam2" d="M -55 16 C -64  4 -78  2 -80 10 C -82 18 -68 22 -55 16"/>
+  <path class="bam2" d="M -54 -32 C -45 -44 -28 -48 -26 -40 C -24 -32 -38 -26 -54 -32"/>
+  <path class="bam" stroke-width="7"  d="M 75 118 C 75 80 77 42 75 0"/>
+  <path stroke="#3a6818" stroke-width="1.1" fill="none" d="M 75 62 Q 86 58 75 54"/>
+  <path class="bam2" d="M 75 32 C 84 20 98 18 100 26 C 102 34 88 38 75 32"/>
+  <ellipse cx="0"  cy="20" rx="52" ry="47" class="pd_w"/>
+  <circle  cx="0"  cy="-40" r="44" class="pd_w"/>
+  <circle  cx="-30" cy="-78" r="16" class="pd_b"/>
+  <circle  cx=" 30" cy="-78" r="16" class="pd_b"/>
+  <ellipse cx="-14" cy="-48" rx="13" ry="11" class="pd_b" transform="rotate(-15,-14,-48)"/>
+  <ellipse cx=" 14" cy="-48" rx="13" ry="11" class="pd_b" transform="rotate(15,14,-48)"/>
+  <circle cx="-12" cy="-49" r="6"   fill="white"/>
+  <circle cx=" 12" cy="-49" r="6"   fill="white"/>
+  <circle cx="-10" cy="-49" r="3.5" fill="#181818"/>
+  <circle cx=" 14" cy="-49" r="3.5" fill="#181818"/>
+  <circle cx=" -9" cy="-50" r="1.3" fill="white"/>
+  <circle cx=" 15" cy="-50" r="1.3" fill="white"/>
+  <ellipse cx="0" cy="-30" rx="6.5" ry="4.5" fill="#282018"/>
+  <path stroke="#282018" stroke-width="1.3" fill="none" d="M -5 -25 Q 0 -20 5 -25"/>
+  <path class="pd_b" d="M -48  8 C -62 -2 -68 18 -62 34 C -57 44 -46 32 -42 18"/>
+  <path class="pd_b" d="M  48  8 C  62 -2  68 18  62 34 C  57 44  46 32  42 18"/>
+  <ellipse cx="-26" cy="64" rx="21" ry="15" class="pd_b"/>
+  <ellipse cx=" 26" cy="64" rx="21" ry="15" class="pd_b"/>
+  <ellipse cx="-36" cy="72" rx="16" ry="11" class="pd_w"/>
+  <ellipse cx=" 36" cy="72" rx="16" ry="11" class="pd_w"/>
+  <path class="bam" stroke-width="5" d="M -50 -12 C -48 8 -46 32 -48 52"/>
 </g>
 
-<!-- small moth (simple ink sketch) mid-left -->
-<g transform="translate(220,560)" opacity="0.6">
-  <ellipse cx="0" cy="2" rx="3" ry="8" fill="rgba(58,32,16,0.35)" stroke="#5a3520" stroke-width="0.7"/>
-  <path class="wsh" d="M 0 -2 C -12 -10 -26 -6 -26 2 C -24 10 -12 8 0 -2"/>
-  <path class="wsh" d="M 0 -2 C  12 -10  26 -6  26 2 C  24 10  12 8  0 -2"/>
-  <path class="wsh" d="M 0 2 C -10 6 -20 14 -18 20 C -14 26 -6 18 0 2"/>
-  <path class="wsh" d="M 0 2 C  10 6  20 14  18 20 C  14 26  6 18  0 2"/>
-  <path class="ink2" stroke-width="0.7" d="M -1 -8 Q -5 -16 -6 -20"/>
-  <path class="ink2" stroke-width="0.7" d="M  1 -8 Q  5 -16  6 -20"/>
+<!-- FOX (狐) — center bottom -->
+<g transform="translate(720,848)" opacity="0.80">
+  <ellipse cx="0"  cy="0"   rx="28" ry="18" class="fx"/>
+  <ellipse cx="22" cy="-18" rx="18" ry="15" class="fx"/>
+  <path class="fx"   d="M 14 -30 C 12 -46 17 -54 20 -50 C 23 -46 22 -34 20 -30"/>
+  <path fill="#f4ece8" d="M 15 -32 C 14 -44 18 -50 20 -47 C 22 -44 21 -36 20 -32"/>
+  <path class="fx"   d="M 28 -30 C 28 -46 33 -54 35 -50 C 37 -46 35 -34 30 -30"/>
+  <path fill="#f4ece8" d="M 29 -32 C 29 -44 33 -50 35 -47 C 37 -44 34 -36 30 -32"/>
+  <path class="fx_w" d="M 22 -22 C 14 -24 10 -16 12 -8 C 14 0 22 4 30 0 C 38 -6 38 -20 30 -24 C 28 -26 24 -24 22 -22"/>
+  <circle cx="22" cy="-18" r="4"   fill="#181808"/>
+  <circle cx="23" cy="-19" r="1.5" fill="white"/>
+  <circle cx="36" cy="-12" r="2.5" fill="#181808"/>
+  <path class="fx"   d="M -28 0 C -48 -8 -65 -5 -70 8 C -75 20 -62 30 -45 28 C -28 26 -14 16 -28 0"/>
+  <path class="fx_w" d="M -64 6 C -72 12 -74 22 -66 28 C -58 32 -48 28 -46 22 C -48 16 -58 10 -64 6"/>
 </g>
 
-<!-- tiny collector's note card -->
-<g transform="translate(380,80)" opacity="0.55">
-  <rect x="0" y="0" width="80" height="52" class="box" rx="2"/>
-  <text x="8" y="16" class="lbl2">Collected: VI.2024</text>
-  <text x="8" y="28" class="lbl3">Locality: field margin</text>
-  <text x="8" y="40" class="lbl3">Alt.: 240 m a.s.l.</text>
-  <line x1="8" y1="44" x2="72" y2="44" stroke="#8a5535" stroke-width="0.4"/>
+<!-- Flying birds -->
+<g transform="translate(475,86)" opacity="0.65">
+  <path fill="#4a6830" d="M 0 0 C -8 -7 -18 -5 -22 0"/>
+  <path fill="#4a6830" d="M 0 0 C  8 -7  18 -5  22 0"/>
+  <ellipse cx="0" cy="2" rx="4" ry="3" fill="#3a5820"/>
+</g>
+<g transform="translate(965,62)" opacity="0.60">
+  <path fill="#4a6830" d="M 0 0 C -6 -5 -14 -4 -18 0"/>
+  <path fill="#4a6830" d="M 0 0 C  6 -5  14 -4  18 0"/>
+  <ellipse cx="0" cy="2" rx="3.5" ry="2.5" fill="#3a5820"/>
+</g>
+<g transform="translate(790,148)" opacity="0.50">
+  <path fill="#6a8850" d="M 0 0 C -5 -4 -12 -3 -15 0"/>
+  <path fill="#6a8850" d="M 0 0 C  5 -4  12 -3  15 0"/>
+  <ellipse cx="0" cy="2" rx="3" ry="2" fill="#5a7840"/>
+</g>
+<g transform="translate(295,155)" opacity="0.45">
+  <path fill="#5a7840" d="M 0 0 C -5 -4 -11 -3 -14 0"/>
+  <path fill="#5a7840" d="M 0 0 C  5 -4  11 -3  14 0"/>
+  <ellipse cx="0" cy="2" rx="3" ry="2" fill="#4a6830"/>
 </g>
 
-<!-- small beetle (Coleoptera) sketch — top area scattered -->
-<g transform="translate(960,80)" opacity="0.5">
-  <ellipse cx="0" cy="-6" rx="6" ry="5" fill="rgba(58,32,16,0.35)" stroke="#5a3520" stroke-width="0.7"/>
-  <path class="wsh" d="M -5 2 C -6 12 -5 22 0 26 C 5 22 6 12 5 2 C 3 0 -3 0 -5 2"/>
-  <line x1="0" y1="2" x2="0" y2="26" class="vein"/>
-  <path class="ink2" stroke-width="0.7" d="M -4 -8 Q -10 -16 -12 -22"/>
-  <path class="ink2" stroke-width="0.7" d="M  4 -8 Q  10 -16  12 -22"/>
-  <path class="ink2" stroke-width="0.8" d="M -5 6 L -14 4"/>
-  <path class="ink2" stroke-width="0.8" d="M  5 6 L  14 4"/>
-  <path class="ink2" stroke-width="0.8" d="M -5 14 L -14 18"/>
-  <path class="ink2" stroke-width="0.8" d="M  5 14 L  14 18"/>
-  <text x="0" y="40" class="lbl3" text-anchor="middle">No. 005</text>
+<!-- Floating leaves -->
+<ellipse cx="410"  cy="198" rx="12" ry="7"  class="lf2" transform="rotate(38,410,198)"   opacity="0.48"/>
+<ellipse cx="628"  cy="285" rx="10" ry="6"  class="lf3" transform="rotate(-18,628,285)"  opacity="0.42"/>
+<ellipse cx="856"  cy="322" rx="11" ry="6"  class="lf"  transform="rotate(52,856,322)"   opacity="0.38"/>
+<ellipse cx="1108" cy="245" rx="10" ry="6"  class="lf2" transform="rotate(-28,1108,245)" opacity="0.40"/>
+<ellipse cx="528"  cy="465" rx="9"  ry="5"  class="lf3" transform="rotate(25,528,465)"   opacity="0.35"/>
+<ellipse cx="932"  cy="418" rx="11" ry="6"  class="lf"  transform="rotate(-42,932,418)"  opacity="0.36"/>
+
+<!-- Morning dewdrops -->
+<circle cx="355"  cy="452" r="4.0" class="dw"/>
+<circle cx="585"  cy="628" r="3.2" class="dw"/>
+<circle cx="898"  cy="542" r="3.5" class="dw"/>
+<circle cx="1188" cy="490" r="3.0" class="dw"/>
+<circle cx="480"  cy="328" r="2.8" class="dw"/>
+<circle cx="1048" cy="368" r="2.6" class="dw"/>
+
+<!-- Small ferns -->
+<g transform="translate(718,852)" opacity="0.55">
+  <path stroke="#3a6028" stroke-width="1.5" fill="none" stroke-linecap="round" d="M 0 48 C 2 28 5 8 8 -12"/>
+  <path class="lf3" d="M  4 28 C 15 20 24 20 23 28 C 21 35 11 35  4 28"/>
+  <path class="lf3" d="M  4 28 C -5 20 -13 20 -12 28 C -10 35 0 35  4 28"/>
+  <path class="lf2" d="M  6 12 C 17  5 26  5 25 13 C 23 20 13 20  6 12"/>
+  <path class="lf2" d="M  6 12 C -2  5 -10  5 -9 13 C  -7 20 3 20  6 12"/>
+  <path class="lf3" d="M  8 -2 C 17 -8 24 -8 23  0 C 21  7 13  7  8 -2"/>
+  <path class="lf3" d="M  8 -2 C  1 -8  -5 -8 -4  0 C  -2  7 6  7  8 -2"/>
 </g>
-
-<!-- scattered pencil dots (compass marks, measurement points) -->
-<circle cx="505" cy="340" r="1.5" class="med" opacity="0.25"/>
-<circle cx="620" cy="480" r="1.5" class="med" opacity="0.22"/>
-<circle cx="840" cy="260" r="1.5" class="med" opacity="0.22"/>
-<circle cx="1180" cy="560" r="1.5" class="med" opacity="0.20"/>
-<circle cx="780" cy="700" r="1.5" class="med" opacity="0.20"/>
-
-<!-- faint specimen divider lines (museum tray dividers) -->
-<line x1="420" y1="0"   x2="420" y2="900" stroke="#c8a878" stroke-width="0.5" opacity="0.10"/>
-<line x1="1020" y1="0"  x2="1020" y2="900" stroke="#c8a878" stroke-width="0.5" opacity="0.10"/>
-<line x1="0"   y1="380" x2="1440" y2="380" stroke="#c8a878" stroke-width="0.5" opacity="0.10"/>
-<line x1="0"   y1="640" x2="1440" y2="640" stroke="#c8a878" stroke-width="0.5" opacity="0.10"/>
-
+<g transform="translate(344,882)" opacity="0.48">
+  <path stroke="#3a6028" stroke-width="1.2" fill="none" stroke-linecap="round" d="M 0 18 C 1 4 3 -10 5 -26"/>
+  <path class="lf3" d="M  2 4 C 10 -2 16 -2 16  5 C 14 11  7 11  2  4"/>
+  <path class="lf3" d="M  2 4 C -4 -2 -9 -2 -9  5 C  -7 11 0 11  2  4"/>
+  <path class="lf2" d="M  4 -11 C 11 -17 16 -17 16 -10 C 14 -4  8 -4  4 -11"/>
+  <path class="lf2" d="M  4 -11 C -1 -17 -6 -17 -6 -10 C  -4 -4 2 -4  4 -11"/>
+</g>
+<g transform="translate(1095,875)" opacity="0.45">
+  <path stroke="#3a6028" stroke-width="1.2" fill="none" stroke-linecap="round" d="M 0 18 C 1 4 3 -10 5 -26"/>
+  <path class="lf3" d="M  2 4 C 10 -2 16 -2 16  5 C 14 11  7 11  2  4"/>
+  <path class="lf3" d="M  2 4 C -4 -2 -9 -2 -9  5 C  -7 11 0 11  2  4"/>
+  <path class="lf2" d="M  4 -11 C 11 -17 16 -17 16 -10 C 14 -4  8 -4  4 -11"/>
+  <path class="lf2" d="M  4 -11 C -1 -17 -6 -17 -6 -10 C  -4 -4 2 -4  4 -11"/>
+</g>
 </svg>
 </div>
 """, unsafe_allow_html=True)
