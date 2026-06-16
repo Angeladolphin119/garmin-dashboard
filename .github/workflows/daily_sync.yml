@@ -1,0 +1,54 @@
+name: 每日 Garmin 資料同步
+
+on:
+  schedule:
+    # 每天台灣時間早上 09:00（UTC 01:00）
+    - cron: '0 1 * * *'
+  workflow_dispatch:  # 允許手動觸發
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 設定 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安裝套件
+        run: pip install -r requirements.txt
+
+      - name: 還原 Google 憑證
+        run: echo '${{ secrets.GOOGLE_CREDENTIALS_JSON }}' > credentials.json
+
+      - name: 還原 Garmin Token（如果有快取）
+        uses: actions/cache@v4
+        with:
+          path: tokens/
+          key: garmin-tokens-${{ github.run_id }}
+          restore-keys: garmin-tokens-
+
+      - name: 執行同步
+        run: python sync.py
+        env:
+          SHEET_ID:    ${{ secrets.SHEET_ID }}
+          USER1_NAME:  ${{ secrets.USER1_NAME }}
+          USER1_EMAIL: ${{ secrets.USER1_EMAIL }}
+          USER1_PASS:  ${{ secrets.USER1_PASS }}
+          USER2_NAME:  ${{ secrets.USER2_NAME }}
+          USER2_EMAIL: ${{ secrets.USER2_EMAIL }}
+          USER2_PASS:  ${{ secrets.USER2_PASS }}
+          USER3_NAME:  ${{ secrets.USER3_NAME }}
+          USER3_EMAIL: ${{ secrets.USER3_EMAIL }}
+          USER3_PASS:  ${{ secrets.USER3_PASS }}
+          USER4_NAME:  ${{ secrets.USER4_NAME }}
+          USER4_EMAIL: ${{ secrets.USER4_EMAIL }}
+          USER4_PASS:  ${{ secrets.USER4_PASS }}
+          USER5_NAME:  ${{ secrets.USER5_NAME }}
+          USER5_EMAIL: ${{ secrets.USER5_EMAIL }}
+          USER5_PASS:  ${{ secrets.USER5_PASS }}
