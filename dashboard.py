@@ -525,6 +525,100 @@ def save_person_data(name: str, rows: list[dict]):
         repo.create_file(path, f"init: {name}", new_df.to_csv(index=False))
 
 
+# ── Watchlist (shared, stored in GitHub) ──────────────────────────────────────
+
+@st.cache_data(ttl=30, show_spinner=False)
+def load_watchlist() -> list:
+    import json
+    from github import GithubException
+    repo = get_repo()
+    try:
+        f = repo.get_contents("data/watchlist.json")
+        return json.loads(f.decoded_content.decode("utf-8"))
+    except GithubException:
+        return []
+
+
+def save_watchlist(tickers: list):
+    import json
+    from github import GithubException
+    repo = get_repo()
+    path = "data/watchlist.json"
+    content = json.dumps(tickers)
+    try:
+        f = repo.get_contents(path)
+        repo.update_file(path, "watchlist update", content, f.sha)
+    except GithubException:
+        repo.create_file(path, "watchlist init", content)
+
+
+# ── Market data (yfinance) ────────────────────────────────────────────────────
+
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_market_indices() -> list:
+    import yfinance as yf
+    indices = [("^GSPC", "S&P 500"), ("^IXIC", "NASDAQ"), ("^DJI", "Dow Jones")]
+    out = []
+    for sym, name in indices:
+        try:
+            h = yf.Ticker(sym).history(period="2d")
+            if len(h) >= 2:
+                prev, curr = float(h["Close"].iloc[-2]), float(h["Close"].iloc[-1])
+                chg = (curr - prev) / prev * 100
+            else:
+                curr, chg = 0.0, 0.0
+        except Exception:
+            curr, chg = 0.0, 0.0
+        out.append({"sym": sym, "name": name, "price": curr, "chg": chg})
+    return out
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_watchlist_data(tickers: tuple) -> dict:
+    import yfinance as yf
+    result = {}
+    for t in tickers:
+        try:
+            tk = yf.Ticker(t)
+            h = tk.history(period="2d")
+            if len(h) >= 2:
+                prev, curr = float(h["Close"].iloc[-2]), float(h["Close"].iloc[-1])
+                chg = (curr - prev) / prev * 100
+            else:
+                curr, chg = 0.0, 0.0
+            info = {}
+            try:
+                info = tk.info or {}
+            except Exception:
+                pass
+            news = []
+            try:
+                for n in (tk.news or [])[:5]:
+                    if not isinstance(n, dict):
+                        continue
+                    title = n.get("title", "")
+                    link = n.get("link", "#")
+                    publisher = n.get("publisher", "")
+                    ts = n.get("providerPublishTime", 0)
+                    if title:
+                        news.append({"title": title, "link": link, "publisher": publisher, "ts": ts})
+            except Exception:
+                pass
+            result[t] = {
+                "name": info.get("shortName", t),
+                "price": curr,
+                "chg": chg,
+                "currency": info.get("currency", "USD"),
+                "news": news,
+            }
+        except Exception as e:
+            result[t] = {
+                "name": t, "price": 0.0, "chg": 0.0,
+                "currency": "USD", "news": [], "error": str(e),
+            }
+    return result
+
+
 # ── Garmin fetch ──────────────────────────────────────────────────────────────
 
 def fetch_garmin(email: str, password: str, date_str: str) -> dict:
@@ -815,18 +909,158 @@ def tab_dashboard():
         st.rerun()
 
 
+# ── Tab 3: Ranný prehľad ──────────────────────────────────────────────────────
+
+def stock_card(ticker: str, name: str, price: float, chg: float, currency: str):
+    color = "#2a7a4a" if chg >= 0 else "#a83232"
+    arrow = "▲" if chg >= 0 else "▼"
+    sign  = "+" if chg >= 0 else ""
+    st.markdown(f"""
+    <div class="metric-card">
+        <div class="metric-label" style="font-size:15px;font-weight:700">{ticker}</div>
+        <div class="metric-label-sk">{name}</div>
+        <div class="metric-value" style="color:{color};">{price:,.2f}</div>
+        <div class="metric-unit">{currency}&nbsp;
+          <span style="color:{color};font-weight:600">{sign}{chg:.2f}%&nbsp;{arrow}</span>
+        </div>
+    </div>""", unsafe_allow_html=True)
+
+
+def tab_briefing():
+    from datetime import datetime as dt
+    SK_MONTHS = [
+        "januára","februára","marca","apríla","mája","júna",
+        "júla","augusta","septembra","októbra","novembra","decembra",
+    ]
+    today   = date.today()
+    date_sk = f"{today.day}. {SK_MONTHS[today.month - 1]} {today.year}"
+
+    st.header("📈 Ranný prehľad / Morning Briefing")
+    st.markdown(
+        f'<p class="bilingual-caption">Akciový prehľad · {date_sk} &nbsp;·&nbsp; '
+        f'{today.strftime("%B %d, %Y")}</p>',
+        unsafe_allow_html=True,
+    )
+
+    # ── Indexy ──
+    st.subheader("🌍 Dnešné trhy / Today's Markets")
+    with st.spinner("Načítavanie trhov…"):
+        indices = fetch_market_indices()
+    idx_cols = st.columns(len(indices))
+    for col, m in zip(idx_cols, indices):
+        with col:
+            stock_card(m["sym"], m["name"], m["price"], m["chg"], "pts")
+
+    st.markdown("---")
+
+    # ── Sledovaný zoznam ──
+    st.subheader("⭐ Sledovaný zoznam / Watchlist")
+    watchlist = load_watchlist()
+
+    c1, c2 = st.columns([4, 1])
+    with c1:
+        new_t = st.text_input(
+            "ticker",
+            placeholder="Pridať akciu — napr. AAPL, TSLA, NVDA / Add stock ticker…",
+            label_visibility="collapsed",
+            key="new_ticker_input",
+        )
+    with c2:
+        if st.button("➕ Pridať", type="primary", use_container_width=True):
+            ticker = new_t.upper().strip()
+            if ticker and ticker not in watchlist:
+                watchlist.append(ticker)
+                with st.spinner("Ukladám…"):
+                    save_watchlist(watchlist)
+                st.cache_data.clear()
+                st.rerun()
+
+    if not watchlist:
+        st.info(
+            "Sledovaný zoznam je prázdny. Pridajte prvú akciu vyššie.\n\n"
+            "*Watchlist is empty — add your first stock above.*"
+        )
+        return
+
+    # Fetch & display
+    with st.spinner("Načítavanie akcií / Loading stocks…"):
+        stock_data = fetch_watchlist_data(tuple(watchlist))
+
+    cols_per_row = min(len(watchlist), 4)
+    tickers_list = list(stock_data.keys())
+    for row_start in range(0, len(tickers_list), cols_per_row):
+        row_tickers = tickers_list[row_start:row_start + cols_per_row]
+        cols = st.columns(cols_per_row)
+        for col, t in zip(cols, row_tickers):
+            with col:
+                d = stock_data[t]
+                if d.get("error") and d["price"] == 0.0:
+                    st.error(f"**{t}**: {d['error'][:60]}")
+                else:
+                    stock_card(t, d["name"], d["price"], d["chg"], d["currency"])
+                if st.button(f"🗑 {t}", key=f"rm_{t}", use_container_width=True):
+                    watchlist.remove(t)
+                    with st.spinner("Ukladám…"):
+                        save_watchlist(watchlist)
+                    st.cache_data.clear()
+                    st.rerun()
+
+    st.markdown("---")
+
+    # ── Správy ──
+    st.subheader("📰 Aktuálne správy / Latest News")
+    any_news = False
+    for t, d in stock_data.items():
+        news = d.get("news", [])
+        if not news:
+            continue
+        any_news = True
+        with st.expander(f"📌 **{t}** — {d.get('name', t)}", expanded=False):
+            for art in news:
+                title     = art.get("title", "")
+                link      = art.get("link", "#")
+                publisher = art.get("publisher", "")
+                ts        = art.get("ts", 0)
+                time_str  = ""
+                if ts:
+                    try:
+                        time_str = dt.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M")
+                    except Exception:
+                        pass
+                sep = " · " if publisher and time_str else ""
+                st.markdown(
+                    f"**[{title}]({link})**  \n"
+                    f"<small style='color:#8a5535'>{publisher}{sep}{time_str}</small>",
+                    unsafe_allow_html=True,
+                )
+                st.markdown("&nbsp;")
+
+    if not any_news:
+        st.info(
+            "Žiadne správy pre aktuálny sledovaný zoznam.\n\n"
+            "*No news available for current watchlist.*"
+        )
+
+    if st.button("🔄 Obnoviť / Refresh", key="briefing_refresh"):
+        st.cache_data.clear()
+        st.rerun()
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
     st.title("🏃 Fitness Group Dashboard / Skupinový fitness prehľad")
-    tab1, tab2 = st.tabs([
-        "📥 Sync My Data / Synchronizovať dáta",
-        "📊 Group Dashboard / Skupinový prehľad",
+    tab1, tab2, tab3 = st.tabs([
+        "📥 Synchronizovať / Sync My Data",
+        "📊 Skupinový prehľad / Group Dashboard",
+        "📈 Ranný prehľad / Morning Briefing",
     ])
     with tab1:
         tab_sync()
     with tab2:
         tab_dashboard()
+    with tab3:
+        tab_briefing()
 
 
 if __name__ == "__main__":
