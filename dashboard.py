@@ -6,7 +6,7 @@ from datetime import date, timedelta
 from io import StringIO
 
 st.set_page_config(
-    page_title="運動小組 Dashboard",
+    page_title="Fitness Group Dashboard",
     page_icon="🏃",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -18,25 +18,38 @@ st.markdown("""
         background: #f0f2f6; border-radius: 12px;
         padding: 16px 20px; text-align: center;
     }
-    .metric-label { font-size: 13px; color: #666; margin-bottom: 4px; }
+    .metric-label { font-size: 12px; color: #888; margin-bottom: 2px; }
+    .metric-label-sk { font-size: 11px; color: #aaa; margin-bottom: 6px; font-style: italic; }
     .metric-value { font-size: 28px; font-weight: 700; color: #1f77b4; }
     .metric-unit  { font-size: 12px; color: #999; }
-    .stTabs [data-baseweb="tab"] { font-size: 16px; padding: 10px 20px; }
+    .stTabs [data-baseweb="tab"] { font-size: 15px; padding: 10px 20px; }
+    .bilingual-caption { color: #888; font-size: 13px; }
 </style>
 """, unsafe_allow_html=True)
 
 COLORS = px.colors.qualitative.Set2
 
+# Column name mapping (internal → display "EN / SK")
+COL = {
+    "date":        "Date / Dátum",
+    "name":        "Name / Meno",
+    "steps":       "Steps / Kroky",
+    "distance_km": "Distance / Vzdialenosť (km)",
+    "calories":    "Calories / Kalórie",
+    "active_min":  "Active min / Aktívne min",
+    "resting_hr":  "Resting HR / Pokojová TF",
+    "sleep_h":     "Sleep / Spánok (h)",
+    "run_km":      "Running / Beh (km)",
+}
 
-# ── GitHub 存取 ───────────────────────────────────────────────────────────────
+
+# ── GitHub storage ────────────────────────────────────────────────────────────
 
 @st.cache_resource
 def get_repo():
-    from github import Github, GithubException
-    token     = st.secrets["GITHUB_TOKEN"]
-    repo_name = st.secrets["GITHUB_REPO"]
-    g = Github(token)
-    return g.get_repo(repo_name)
+    from github import Github
+    g = Github(st.secrets["GITHUB_TOKEN"])
+    return g.get_repo(st.secrets["GITHUB_REPO"])
 
 
 @st.cache_data(ttl=60, show_spinner=False)
@@ -45,11 +58,9 @@ def load_all_data() -> pd.DataFrame:
     repo = get_repo()
     dfs = []
     try:
-        contents = repo.get_contents("data")
-        for f in contents:
+        for f in repo.get_contents("data"):
             if f.name.endswith(".csv"):
-                df = pd.read_csv(StringIO(f.decoded_content.decode("utf-8")))
-                dfs.append(df)
+                dfs.append(pd.read_csv(StringIO(f.decoded_content.decode("utf-8"))))
     except GithubException:
         pass
 
@@ -57,34 +68,34 @@ def load_all_data() -> pd.DataFrame:
         return pd.DataFrame()
 
     df = pd.concat(dfs, ignore_index=True)
-    df["日期"] = pd.to_datetime(df["日期"], errors="coerce")
-    df = df.dropna(subset=["日期"])
-    for col in ["步數", "總距離(km)", "消耗卡路里", "活動時間(分)", "靜止心率", "睡眠(小時)", "跑步距離(km)"]:
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"])
+    for col in ["steps", "distance_km", "calories", "active_min", "resting_hr", "sleep_h", "run_km"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
-    return df.sort_values("日期")
+    return df.sort_values("date")
 
 
-def save_person_data(name: str, new_rows: list[dict]):
+def save_person_data(name: str, rows: list[dict]):
     from github import GithubException
     repo = get_repo()
     path = f"data/{name}.csv"
-    new_df = pd.DataFrame(new_rows)
+    new_df = pd.DataFrame(rows)
 
     try:
-        existing_file = repo.get_contents(path)
-        existing_df = pd.read_csv(StringIO(existing_file.decoded_content.decode("utf-8")))
+        f = repo.get_contents(path)
+        existing = pd.read_csv(StringIO(f.decoded_content.decode("utf-8")))
         merged = (
-            pd.concat([existing_df, new_df], ignore_index=True)
-            .drop_duplicates(subset=["日期"], keep="last")
-            .sort_values("日期")
+            pd.concat([existing, new_df], ignore_index=True)
+            .drop_duplicates(subset=["date"], keep="last")
+            .sort_values("date")
         )
-        repo.update_file(path, f"sync: {name}", merged.to_csv(index=False), existing_file.sha)
+        repo.update_file(path, f"sync: {name}", merged.to_csv(index=False), f.sha)
     except GithubException:
         repo.create_file(path, f"init: {name}", new_df.to_csv(index=False))
 
 
-# ── Garmin 抓取 ───────────────────────────────────────────────────────────────
+# ── Garmin fetch ──────────────────────────────────────────────────────────────
 
 def fetch_garmin(email: str, password: str, date_str: str) -> dict:
     from garminconnect import Garmin
@@ -101,10 +112,10 @@ def fetch_garmin(email: str, password: str, date_str: str) -> dict:
     active_min = round((stats.get("activeSeconds", 0) or 0) / 60)
     resting_hr = stats.get("restingHeartRate", 0) or 0
 
-    sleep_hours = 0.0
+    sleep_h = 0.0
     try:
-        secs = client.get_sleep_data(date_str).get("dailySleepDTO", {}).get("sleepTimeSeconds", 0) or 0
-        sleep_hours = round(secs / 3600, 1)
+        secs   = client.get_sleep_data(date_str).get("dailySleepDTO", {}).get("sleepTimeSeconds", 0) or 0
+        sleep_h = round(secs / 3600, 1)
     except Exception:
         pass
 
@@ -116,39 +127,56 @@ def fetch_garmin(email: str, password: str, date_str: str) -> dict:
         pass
 
     return {
-        "日期": date_str,
-        "步數": steps,
-        "總距離(km)": round(distance_m / 1000, 2),
-        "消耗卡路里": calories,
-        "活動時間(分)": active_min,
-        "靜止心率": resting_hr,
-        "睡眠(小時)": sleep_hours,
-        "跑步距離(km)": run_km,
+        "date":        date_str,
+        "name":        None,  # filled by caller
+        "steps":       steps,
+        "distance_km": round(distance_m / 1000, 2),
+        "calories":    calories,
+        "active_min":  active_min,
+        "resting_hr":  resting_hr,
+        "sleep_h":     sleep_h,
+        "run_km":      run_km,
     }
 
 
-# ── Tab 1：同步 ────────────────────────────────────────────────────────────────
+# ── Tab 1: Sync / Synchronizovať ─────────────────────────────────────────────
 
 def tab_sync():
-    st.header("同步我的資料")
-    st.caption("輸入 Garmin 帳號，資料會儲存到群組共用的 GitHub 倉庫。密碼只在這次連線使用，不會被儲存。")
+    st.header("Sync My Data / Synchronizovať moje dáta")
+    st.markdown(
+        '<p class="bilingual-caption">'
+        "Enter your Garmin credentials to sync data to the shared group repository. "
+        "Your password is used only during this session and is never stored.<br>"
+        "<i>Zadajte prihlasovacie údaje Garmin na synchronizáciu dát. "
+        "Heslo sa používa iba počas tohto sedenia a nikdy sa neukladá.</i>"
+        "</p>",
+        unsafe_allow_html=True,
+    )
 
     with st.form("sync_form"):
-        name  = st.text_input("你的暱稱", placeholder="例：小明")
-        email = st.text_input("Garmin 帳號（Email）")
-        pw    = st.text_input("Garmin 密碼", type="password")
+        name  = st.text_input(
+            "Nickname / Prezývka",
+            placeholder="e.g. Peter / napr. Peter",
+        )
+        email = st.text_input("Garmin Email")
+        pw    = st.text_input("Garmin Password / Heslo", type="password")
+
         c1, c2 = st.columns(2)
         with c1:
-            start = st.date_input("開始日期", value=date.today() - timedelta(days=6))
+            start = st.date_input("Start date / Dátum začiatku", value=date.today() - timedelta(days=6))
         with c2:
-            end   = st.date_input("結束日期", value=date.today())
-        submitted = st.form_submit_button("開始同步", type="primary", use_container_width=True)
+            end   = st.date_input("End date / Dátum konca",      value=date.today())
+
+        submitted = st.form_submit_button(
+            "Start Sync / Začať synchronizáciu",
+            type="primary",
+            use_container_width=True,
+        )
 
     if not submitted:
         return
-
     if not (name and email and pw):
-        st.error("請填寫所有欄位")
+        st.error("Please fill in all fields. / Vyplňte všetky polia.")
         return
 
     date_list = [
@@ -156,7 +184,7 @@ def tab_sync():
         for i in range((end - start).days + 1)
     ]
 
-    progress = st.progress(0, text="登入 Garmin 中…")
+    progress = st.progress(0, text="Logging into Garmin / Prihlasovanie do Garmin…")
     results, rows = [], []
 
     try:
@@ -166,157 +194,205 @@ def tab_sync():
         client.login()
         st.session_state["garmin_client"] = client
     except Exception as e:
-        st.error(f"Garmin 登入失敗：{e}")
+        st.error(f"Garmin login failed / Prihlasovanie zlyhalo: {e}")
         return
 
     for i, d in enumerate(date_list):
-        progress.progress((i + 1) / len(date_list), text=f"抓取 {d}…")
+        progress.progress(
+            (i + 1) / len(date_list),
+            text=f"Fetching / Načítavanie {d}…",
+        )
         try:
             row = fetch_garmin(email, pw, d)
+            row["name"] = name
             rows.append(row)
-            results.append({"日期": d, "步數": f"{row['步數']:,}", "跑步": f"{row['跑步距離(km)']} km",
-                            "睡眠": f"{row['睡眠(小時)']} h", "狀態": "✅"})
+            results.append({
+                "Date / Dátum":    d,
+                "Steps / Kroky":   f"{row['steps']:,}",
+                "Run / Beh (km)":  row["run_km"],
+                "Sleep / Spánok":  f"{row['sleep_h']} h",
+                "Status / Stav":   "✅",
+            })
         except Exception as e:
-            results.append({"日期": d, "狀態": f"❌ {e}"})
+            results.append({"Date / Dátum": d, "Status / Stav": f"❌ {e}"})
 
     progress.empty()
 
     if rows:
-        with st.spinner("儲存到 GitHub…"):
+        with st.spinner("Saving to GitHub / Ukladanie na GitHub…"):
             save_person_data(name, rows)
         st.cache_data.clear()
         st.cache_resource.clear()
 
-    st.success(f"完成！成功同步 {len(rows)} 天")
+    st.success(
+        f"Done! Synced {len(rows)} days. / "
+        f"Hotovo! Synchronizovaných {len(rows)} dní."
+    )
     st.dataframe(pd.DataFrame(results), use_container_width=True)
 
 
-# ── Tab 2：Dashboard ───────────────────────────────────────────────────────────
+# ── Tab 2: Dashboard ──────────────────────────────────────────────────────────
 
-def metric_card(label, value, unit=""):
+def metric_card(label_en: str, label_sk: str, value, unit: str = ""):
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-label">{label}</div>
+        <div class="metric-label">{label_en}</div>
+        <div class="metric-label-sk">{label_sk}</div>
         <div class="metric-value">{value}</div>
         <div class="metric-unit">{unit}</div>
     </div>""", unsafe_allow_html=True)
 
 
 def tab_dashboard():
-    st.header("群組 Dashboard")
+    st.header("Group Dashboard / Skupinový prehľad")
 
-    with st.spinner("載入資料…"):
+    with st.spinner("Loading data / Načítavanie dát…"):
         df_all = load_all_data()
 
     if df_all.empty:
-        st.info("還沒有資料，請先到「同步我的資料」頁面輸入帳號同步。")
+        st.info(
+            "No data yet — go to **Sync My Data** tab to add your Garmin account.\n\n"
+            "*Zatiaľ žiadne dáta — prejdite na záložku Synchronizovať a pridajte účet Garmin.*"
+        )
         return
 
     c1, c2 = st.columns([2, 3])
     with c1:
-        min_d, max_d = df_all["日期"].min().date(), df_all["日期"].max().date()
-        dr = st.date_input("日期範圍",
-                           value=(max(min_d, max_d - timedelta(days=29)), max_d),
-                           min_value=min_d, max_value=max_d)
+        min_d, max_d = df_all["date"].min().date(), df_all["date"].max().date()
+        dr = st.date_input(
+            "Date range / Časové obdobie",
+            value=(max(min_d, max_d - timedelta(days=29)), max_d),
+            min_value=min_d, max_value=max_d,
+        )
     with c2:
-        members  = sorted(df_all["姓名"].unique()) if "姓名" in df_all.columns else []
-        selected = st.multiselect("成員", members, default=members)
+        members  = sorted(df_all["name"].unique()) if "name" in df_all.columns else []
+        selected = st.multiselect("Members / Členovia", members, default=members)
 
     if len(dr) != 2 or not selected:
         return
 
     df = df_all[
-        (df_all["日期"].dt.date >= dr[0]) &
-        (df_all["日期"].dt.date <= dr[1])
+        (df_all["date"].dt.date >= dr[0]) &
+        (df_all["date"].dt.date <= dr[1]) &
+        (df_all["name"].isin(selected))
     ]
-    if "姓名" in df.columns:
-        df = df[df["姓名"].isin(selected)]
 
     if df.empty:
-        st.warning("沒有符合條件的資料")
+        st.warning("No data for the selected filters. / Žiadne dáta pre zvolené filtre.")
         return
 
-    # 計分卡
+    # Metric cards
     m1, m2, m3, m4, m5 = st.columns(5)
-    with m1: metric_card("平均步數",   f"{int(df['步數'].mean()):,}", "步/天")
-    with m2: metric_card("跑步總距離", f"{df['跑步距離(km)'].sum():.1f}", "km")
-    with m3: metric_card("平均卡路里", f"{int(df['消耗卡路里'].mean())}", "kcal/天")
-    with m4: metric_card("平均睡眠",   f"{df['睡眠(小時)'].mean():.1f}", "小時/天")
-    with m5: metric_card("活躍天數",   f"{df[df['步數']>0]['日期'].nunique()}", "天")
+    with m1: metric_card("Avg Steps",    "Priem. kroky",   f"{int(df['steps'].mean()):,}",          "steps/day · krokov/deň")
+    with m2: metric_card("Total Running","Celkový beh",    f"{df['run_km'].sum():.1f}",              "km")
+    with m3: metric_card("Avg Calories", "Priem. kalórie", f"{int(df['calories'].mean())}",          "kcal/day · deň")
+    with m4: metric_card("Avg Sleep",    "Priem. spánok",  f"{df['sleep_h'].mean():.1f}",            "h/day · deň")
+    with m5: metric_card("Active Days",  "Aktívne dni",    f"{df[df['steps']>0]['date'].nunique()}", "days · dní")
 
     st.markdown("---")
 
-    # 步數趨勢
-    fig = px.line(df, x="日期", y="步數", color="姓名", title="每日步數趨勢",
-                  color_discrete_sequence=COLORS, markers=True)
+    # Daily steps trend
+    fig = px.line(
+        df, x="date", y="steps", color="name",
+        title="Daily Steps Trend / Denný trend krokov",
+        labels={"date": "Date / Dátum", "steps": "Steps / Kroky", "name": "Name / Meno"},
+        color_discrete_sequence=COLORS, markers=True,
+    )
     fig.update_layout(hovermode="x unified", height=350)
     st.plotly_chart(fig, use_container_width=True)
 
     c1, c2 = st.columns(2)
     with c1:
-        rank = df.groupby("姓名")["步數"].sum().reset_index().sort_values("步數")
-        fig  = px.bar(rank, x="步數", y="姓名", orientation="h", title="步數排行",
-                      color="步數", color_continuous_scale="Blues", text="步數")
+        rank = df.groupby("name")["steps"].sum().reset_index().sort_values("steps")
+        fig  = px.bar(
+            rank, x="steps", y="name", orientation="h",
+            title="Steps Ranking / Rebríček krokov",
+            labels={"steps": "Steps / Kroky", "name": "Name / Meno"},
+            color="steps", color_continuous_scale="Blues", text="steps",
+        )
         fig.update_traces(texttemplate="%{text:,}", textposition="outside")
         fig.update_layout(showlegend=False, coloraxis_showscale=False, height=350)
         st.plotly_chart(fig, use_container_width=True)
 
     with c2:
-        run = df[df["跑步距離(km)"] > 0]
+        run = df[df["run_km"] > 0]
         if run.empty:
-            st.info("篩選期間沒有跑步紀錄")
+            st.info("No running records in this period.\n\n*Žiadne záznamy behu v tomto období.*")
         else:
-            fig = px.bar(run, x="日期", y="跑步距離(km)", color="姓名",
-                         title="跑步距離（每日）", color_discrete_sequence=COLORS, barmode="stack")
+            fig = px.bar(
+                run, x="date", y="run_km", color="name",
+                title="Daily Running Distance / Denná vzdialenosť behu",
+                labels={"date": "Date / Dátum", "run_km": "km", "name": "Name / Meno"},
+                color_discrete_sequence=COLORS, barmode="stack",
+            )
             fig.update_layout(height=350)
             st.plotly_chart(fig, use_container_width=True)
 
     c3, c4 = st.columns(2)
     with c3:
-        fig = px.line(df, x="日期", y="睡眠(小時)", color="姓名", title="睡眠時數",
-                      color_discrete_sequence=COLORS, markers=True)
-        fig.add_hline(y=7, line_dash="dot", line_color="orange", annotation_text="建議 7h")
+        fig = px.line(
+            df, x="date", y="sleep_h", color="name",
+            title="Sleep Hours / Hodiny spánku",
+            labels={"date": "Date / Dátum", "sleep_h": "Hours / Hodiny", "name": "Name / Meno"},
+            color_discrete_sequence=COLORS, markers=True,
+        )
+        fig.add_hline(
+            y=7, line_dash="dot", line_color="orange",
+            annotation_text="Recommended 7h / Odporúčané 7h",
+        )
         fig.update_layout(hovermode="x unified", height=350)
         st.plotly_chart(fig, use_container_width=True)
 
     with c4:
-        fig = px.area(df, x="日期", y="消耗卡路里", color="姓名", title="消耗卡路里",
-                      color_discrete_sequence=COLORS)
+        fig = px.area(
+            df, x="date", y="calories", color="name",
+            title="Calories Burned / Spálené kalórie",
+            labels={"date": "Date / Dátum", "calories": "kcal", "name": "Name / Meno"},
+            color_discrete_sequence=COLORS,
+        )
         fig.update_layout(hovermode="x unified", height=350)
         st.plotly_chart(fig, use_container_width=True)
 
-    # 雷達圖
-    metrics = ["步數", "跑步距離(km)", "睡眠(小時)", "活動時間(分)", "消耗卡路里"]
-    if "姓名" in df.columns:
-        summary = df.groupby("姓名")[metrics].mean()
+    # Radar chart
+    if "name" in df.columns:
+        metrics = ["steps", "run_km", "sleep_h", "active_min", "calories"]
+        summary = df.groupby("name")[metrics].mean()
         norm    = (summary - summary.min()) / (summary.max() - summary.min() + 1e-9)
-        labels  = ["步數", "跑步", "睡眠", "活動", "卡路里"]
+        labels  = ["Steps\nKroky", "Running\nBeh", "Sleep\nSpánok", "Active\nAktívny", "Calories\nKalórie"]
         fig     = go.Figure()
         for i, (person, row) in enumerate(norm.iterrows()):
             fig.add_trace(go.Scatterpolar(
-                r=list(row) + [row.iloc[0]], theta=labels + [labels[0]],
-                fill="toself", name=person, line_color=COLORS[i % len(COLORS)],
+                r=list(row) + [row.iloc[0]],
+                theta=labels + [labels[0]],
+                fill="toself", name=person,
+                line_color=COLORS[i % len(COLORS)],
             ))
-        fig.update_layout(title="個人運動輪廓",
-                          polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
-                          height=420)
+        fig.update_layout(
+            title="Personal Fitness Profile / Osobný fitness profil",
+            polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+            height=420,
+        )
         st.plotly_chart(fig, use_container_width=True)
 
-    with st.expander("📋 原始資料"):
-        st.dataframe(df.sort_values("日期", ascending=False).reset_index(drop=True),
-                     use_container_width=True)
+    with st.expander("📋 Raw Data / Surové dáta"):
+        display_df = df.sort_values("date", ascending=False).reset_index(drop=True)
+        display_df.columns = [COL.get(c, c) for c in display_df.columns]
+        st.dataframe(display_df, use_container_width=True)
 
-    if st.button("🔄 重新載入資料"):
+    if st.button("🔄 Reload / Obnoviť"):
         st.cache_data.clear()
         st.cache_resource.clear()
         st.rerun()
 
 
-# ── 主程式 ─────────────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
 
 def main():
-    st.title("🏃 運動小組 Dashboard")
-    tab1, tab2 = st.tabs(["📥 同步我的資料", "📊 群組 Dashboard"])
+    st.title("🏃 Fitness Group Dashboard / Skupinový fitness prehľad")
+    tab1, tab2 = st.tabs([
+        "📥 Sync My Data / Synchronizovať dáta",
+        "📊 Group Dashboard / Skupinový prehľad",
+    ])
     with tab1:
         tab_sync()
     with tab2:
