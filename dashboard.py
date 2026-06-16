@@ -619,6 +619,127 @@ def fetch_watchlist_data(tickers: tuple) -> dict:
     return result
 
 
+
+# ── Additional market helpers ─────────────────────────────────────────────────
+
+def format_large_num(n) -> str:
+    if not n:
+        return "N/A"
+    n = float(n)
+    if n >= 1e12: return f"{n/1e12:.2f} T"
+    if n >= 1e9:  return f"{n/1e9:.2f} B"
+    if n >= 1e6:  return f"{n/1e6:.2f} M"
+    return f"{n:,.0f}"
+
+
+def get_cet_now():
+    from datetime import datetime, timezone, timedelta
+    utc = datetime.now(timezone.utc)
+    offset = 2 if 3 <= utc.month <= 10 else 1
+    return utc + timedelta(hours=offset)
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def search_companies(query: str) -> list:
+    import yfinance as yf
+    try:
+        s = yf.Search(query, max_results=8)
+        results = getattr(s, "quotes", None) or []
+        return [
+            {"symbol": r.get("symbol", ""),
+             "name": r.get("shortname") or r.get("longname", "") or r.get("symbol", "")}
+            for r in results
+            if r.get("symbol") and r.get("quoteType", "EQUITY") in ("EQUITY", "ETF", "INDEX", "")
+        ]
+    except Exception:
+        return []
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_morning_markets() -> list:
+    import yfinance as yf
+    symbols = [
+        ("^N225",   "Nikkei 225",  "🇯🇵"),
+        ("^HSI",    "Hang Seng",   "🇭🇰"),
+        ("^GDAXI",  "DAX",         "🇩🇪"),
+        ("^FTSE",   "FTSE 100",    "🇬🇧"),
+        ("^GSPC",   "S&P 500",     "🇺🇸"),
+        ("^IXIC",   "NASDAQ",      "🇺🇸"),
+        ("GC=F",    "Zlato/Gold",  "🥇"),
+        ("BTC-USD", "Bitcoin",     "₿"),
+    ]
+    out = []
+    for sym, name, flag in symbols:
+        try:
+            h = yf.Ticker(sym).history(period="2d")
+            if len(h) >= 2:
+                prev, curr = float(h["Close"].iloc[-2]), float(h["Close"].iloc[-1])
+                chg = (curr - prev) / prev * 100
+            else:
+                curr, chg = 0.0, 0.0
+        except Exception:
+            curr, chg = 0.0, 0.0
+        out.append({"sym": sym, "name": name, "flag": flag, "price": curr, "chg": chg})
+    return out
+
+
+@st.cache_data(ttl=900, show_spinner=False)
+def fetch_global_news(limit: int = 15) -> list:
+    import yfinance as yf
+    sources = ["^GSPC", "^IXIC", "^DJI", "SPY", "QQQ", "GC=F", "BTC-USD", "^VIX", "^TNX"]
+    seen, all_news = set(), []
+    for sym in sources:
+        try:
+            for n in (yf.Ticker(sym).news or []):
+                if not isinstance(n, dict):
+                    continue
+                uid = n.get("uuid") or n.get("link", "")
+                if uid and uid not in seen:
+                    seen.add(uid)
+                    all_news.append(n)
+        except Exception:
+            continue
+    all_news.sort(key=lambda x: x.get("providerPublishTime", 0), reverse=True)
+    return all_news[:limit]
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_company_detail(ticker: str, period: str) -> dict:
+    import yfinance as yf
+    tk = yf.Ticker(ticker)
+    hist_records = []
+    try:
+        h = tk.history(period=period)
+        if not h.empty:
+            tmp = h.reset_index()[["Date", "Close", "High", "Low", "Volume"]].copy()
+            tmp["Date"] = tmp["Date"].dt.strftime("%Y-%m-%d")
+            hist_records = tmp.to_dict("records")
+    except Exception:
+        pass
+    info = {}
+    try:
+        info = tk.info or {}
+    except Exception:
+        pass
+    news = []
+    try:
+        for n in (tk.news or [])[:10]:
+            if isinstance(n, dict) and n.get("title"):
+                news.append(n)
+    except Exception:
+        pass
+    divs = []
+    try:
+        d = tk.dividends
+        if not d.empty:
+            tmp = d.reset_index().tail(20).copy()
+            tmp["Date"] = tmp["Date"].dt.strftime("%Y-%m-%d")
+            divs = tmp.to_dict("records")
+    except Exception:
+        pass
+    return {"hist": hist_records, "info": info, "news": news, "divs": divs}
+
+
 # ── Garmin fetch ──────────────────────────────────────────────────────────────
 
 def fetch_garmin(email: str, password: str, date_str: str) -> dict:
@@ -911,137 +1032,278 @@ def tab_dashboard():
 
 # ── Tab 3: Ranný prehľad ──────────────────────────────────────────────────────
 
-def stock_card(ticker: str, name: str, price: float, chg: float, currency: str):
-    color = "#2a7a4a" if chg >= 0 else "#a83232"
-    arrow = "▲" if chg >= 0 else "▼"
-    sign  = "+" if chg >= 0 else ""
+def stock_card(ticker: str, name: str, price: float, chg: float,
+               currency: str, added_by: str = ""):
+    color  = "#2a7a4a" if chg >= 0 else "#a83232"
+    arrow  = "▲" if chg >= 0 else "▼"
+    sign   = "+" if chg >= 0 else ""
+    by_tag = (f'<div style="font-size:10px;color:#9a7560;margin-top:3px">'
+              f'➕ {added_by}</div>') if added_by else ""
     st.markdown(f"""
     <div class="metric-card">
-        <div class="metric-label" style="font-size:15px;font-weight:700">{ticker}</div>
-        <div class="metric-label-sk">{name}</div>
-        <div class="metric-value" style="color:{color};">{price:,.2f}</div>
-        <div class="metric-unit">{currency}&nbsp;
-          <span style="color:{color};font-weight:600">{sign}{chg:.2f}%&nbsp;{arrow}</span>
-        </div>
+      <div class="metric-label" style="font-size:15px;font-weight:700">{ticker}</div>
+      <div class="metric-label-sk" style="font-size:11px">{name}</div>
+      <div class="metric-value" style="color:{color};font-size:22px">{price:,.2f}</div>
+      <div class="metric-unit">{currency}&nbsp;
+        <span style="color:{color};font-weight:600">{sign}{chg:.2f}%&nbsp;{arrow}</span>
+      </div>
+      {by_tag}
     </div>""", unsafe_allow_html=True)
+
+
+def _show_company_detail(ticker: str):
+    from datetime import datetime as dt
+    if st.button("← Späť / Back", key="back_btn"):
+        st.session_state["detail_ticker"] = None
+        st.rerun()
+
+    st.header(f"📊 {ticker} — Detailný prehľad / Company Detail")
+    per_map   = {"5 dní": "5d", "1 mesiac": "1mo", "3 mesiace": "3mo", "1 rok": "1y", "5 rokov": "5y"}
+    per_label = st.radio("Obdobie / Period", list(per_map.keys()), horizontal=True, key="det_period")
+
+    with st.spinner("Načítavanie…"):
+        data = fetch_company_detail(ticker, per_map[per_label])
+
+    info = data["info"]
+
+    if data["hist"]:
+        hdf = pd.DataFrame(data["hist"])
+        hdf["Date"] = pd.to_datetime(hdf["Date"])
+        fig = px.area(hdf, x="Date", y="Close",
+                      title=f"{ticker} — {info.get('shortName', ticker)} — Vývoj ceny / Price",
+                      color_discrete_sequence=["#5a3520"])
+        fig.update_layout(height=300, showlegend=False)
+        st.plotly_chart(fig, use_container_width=True)
+
+    c1, c2, c3, c4, c5, c6 = st.columns(6)
+    with c1: st.metric("Trhová kap.", format_large_num(info.get("marketCap")))
+    with c2: st.metric("P/E",  f"{info.get('trailingPE',0):.1f}" if info.get("trailingPE") else "N/A")
+    with c3: st.metric("EPS",  f"{info.get('trailingEps',0):.2f}" if info.get("trailingEps") else "N/A")
+    with c4:
+        dy = info.get("dividendYield")
+        st.metric("Dividenda", f"{dy*100:.2f}%" if dy else "N/A")
+    with c5: st.metric("52T max", f"{info.get('fiftyTwoWeekHigh',0):.2f}" if info.get("fiftyTwoWeekHigh") else "N/A")
+    with c6: st.metric("52T min", f"{info.get('fiftyTwoWeekLow',0):.2f}"  if info.get("fiftyTwoWeekLow")  else "N/A")
+
+    e1, e2, e3 = st.columns(3)
+    with e1: st.metric("Beta",   f"{info.get('beta',0):.2f}" if info.get("beta") else "N/A")
+    with e2: st.metric("Sektor", info.get("sector", "N/A"))
+    with e3: st.metric("Burza",  info.get("exchange", "N/A"))
+
+    if info.get("longBusinessSummary"):
+        with st.expander("O spoločnosti / About"):
+            st.write(info["longBusinessSummary"])
+
+    if data["divs"]:
+        st.markdown("---")
+        st.subheader("💰 História dividendy / Dividend History")
+        ddf = pd.DataFrame(data["divs"])
+        ddf["Date"] = pd.to_datetime(ddf["Date"])
+        fig2 = px.bar(ddf, x="Date", y="Dividends",
+                      title="Dividendy na akciu / Dividends per share",
+                      color_discrete_sequence=["#4a7a3a"])
+        fig2.update_layout(height=240)
+        st.plotly_chart(fig2, use_container_width=True)
+
+    st.markdown("---")
+    st.subheader("📰 Správy / News")
+    for n in data["news"]:
+        title = n.get("title", "")
+        link  = n.get("link", "#")
+        pub   = n.get("publisher", "")
+        ts    = n.get("providerPublishTime", 0)
+        tstr  = dt.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else ""
+        st.markdown(
+            f"**[{title}]({link})**  \n"
+            f"<small style='color:#8a5535'>{pub}{' · ' if pub and tstr else ''}{tstr}</small>",
+            unsafe_allow_html=True,
+        )
+        st.markdown("&nbsp;")
 
 
 def tab_briefing():
     from datetime import datetime as dt
-    SK_MONTHS = [
-        "januára","februára","marca","apríla","mája","júna",
-        "júla","augusta","septembra","októbra","novembra","decembra",
-    ]
+
+    if "detail_ticker" not in st.session_state:
+        st.session_state["detail_ticker"] = None
+
+    if st.session_state["detail_ticker"]:
+        _show_company_detail(st.session_state["detail_ticker"])
+        return
+
+    SK_MONTHS = ["januára","februára","marca","apríla","mája","júna",
+                 "júla","augusta","septembra","októbra","novembra","decembra"]
     today   = date.today()
     date_sk = f"{today.day}. {SK_MONTHS[today.month - 1]} {today.year}"
+    cet_now = get_cet_now()
 
     st.header("📈 Ranný prehľad / Morning Briefing")
     st.markdown(
-        f'<p class="bilingual-caption">Akciový prehľad · {date_sk} &nbsp;·&nbsp; '
-        f'{today.strftime("%B %d, %Y")}</p>',
+        f'<p class="bilingual-caption">'
+        f'Investičný prehľad · {date_sk} · SEČ {cet_now.strftime("%H:%M")}'
+        f'{"&nbsp;· ✅ Ranný prehľad zo 07:00" if cet_now.hour >= 7 else "&nbsp;· ⏳ Ranný prehľad bude o 07:00"}'
+        f'</p>',
         unsafe_allow_html=True,
     )
 
-    # ── Indexy ──
+    # ── Markets ──
     st.subheader("🌍 Dnešné trhy / Today's Markets")
     with st.spinner("Načítavanie trhov…"):
-        indices = fetch_market_indices()
-    idx_cols = st.columns(len(indices))
-    for col, m in zip(idx_cols, indices):
-        with col:
-            stock_card(m["sym"], m["name"], m["price"], m["chg"], "pts")
+        markets = fetch_morning_markets()
+
+    for rs in range(0, len(markets), 4):
+        row = markets[rs:rs + 4]
+        cols = st.columns(len(row))
+        for col, m in zip(cols, row):
+            color = "#2a7a4a" if m["chg"] >= 0 else "#a83232"
+            sign  = "+" if m["chg"] >= 0 else ""
+            arrow = "▲" if m["chg"] >= 0 else "▼"
+            with col:
+                st.markdown(f"""
+                <div class="metric-card" style="text-align:center;padding:10px 4px">
+                  <div style="font-size:20px">{m['flag']}</div>
+                  <div class="metric-label" style="font-weight:700;font-size:11px">{m['name']}</div>
+                  <div style="font-size:16px;font-weight:700;color:{color}">{sign}{m['chg']:.2f}%&nbsp;{arrow}</div>
+                  <div class="metric-unit">{m['price']:,.0f}</div>
+                </div>""", unsafe_allow_html=True)
+
+    # ── Investment highlights ──
+    if cet_now.hour >= 7:
+        st.markdown("---")
+        st.subheader("💡 Investičné príležitosti dnes / Today's Highlights")
+        bullish = [m for m in markets if m["chg"] >  0.5]
+        bearish = [m for m in markets if m["chg"] < -0.5]
+        if bullish:
+            st.success("📈 **Rastúce trhy:** " +
+                       " · ".join(f"{m['name']} (+{m['chg']:.2f}%)" for m in bullish))
+        if bearish:
+            st.warning("📉 **Zvýšená opatrnosť:** " +
+                       " · ".join(f"{m['name']} ({m['chg']:.2f}%)" for m in bearish))
+        if not bullish and not bearish:
+            st.info("📊 Trhy v úzkom rozmedzí — čakajte na jasnejší signál.")
+        gold = next((m for m in markets if m["sym"] == "GC=F"), None)
+        btc  = next((m for m in markets if m["sym"] == "BTC-USD"), None)
+        if gold and gold["chg"] > 0.5:
+            st.info(f"🥇 Zlato rastie (+{gold['chg']:.2f}%) — obranná nálada / risk-off sentiment.")
+        if btc and btc["chg"] > 2:
+            st.info(f"₿ Bitcoin silný (+{btc['chg']:.2f}%) — chuť do rizika / risk-on signal.")
+    else:
+        mins_left = 7 * 60 - cet_now.hour * 60 - cet_now.minute
+        st.info(f"⏰ Ranný prehľad bude dostupný od **07:00 SEČ** (za {mins_left} min).")
 
     st.markdown("---")
 
-    # ── Sledovaný zoznam ──
+    # ── Watchlist ──
     st.subheader("⭐ Sledovaný zoznam / Watchlist")
-    watchlist = load_watchlist()
 
-    c1, c2 = st.columns([4, 1])
-    with c1:
-        new_t = st.text_input(
-            "ticker",
-            placeholder="Pridať akciu — napr. AAPL, TSLA, NVDA / Add stock ticker…",
-            label_visibility="collapsed",
-            key="new_ticker_input",
-        )
-    with c2:
-        if st.button("➕ Pridať", type="primary", use_container_width=True):
-            ticker = new_t.upper().strip()
-            if ticker and ticker not in watchlist:
-                watchlist.append(ticker)
-                with st.spinner("Ukladám…"):
-                    save_watchlist(watchlist)
-                st.cache_data.clear()
-                st.rerun()
+    with st.expander("🔍 Vyhľadať podľa názvu spoločnosti / Search by company name"):
+        q = st.text_input("Názov / Name", placeholder="napr. Apple, Samsung, ASML…", key="sq")
+        if q and len(q) >= 2:
+            with st.spinner("Hľadám…"):
+                candidates = search_companies(q)
+            if candidates:
+                choice = st.radio("Vyberte ticker:", [f"{c['symbol']} — {c['name']}" for c in candidates], key="sq_c")
+                adder  = st.text_input("Vaša prezývka / Nickname", key="sq_adder", placeholder="napr. Peter")
+                if st.button("➕ Pridať do zoznamu", type="primary", key="sq_add"):
+                    idx = [f"{c['symbol']} — {c['name']}" for c in candidates].index(choice)
+                    sel = candidates[idx]
+                    wl  = load_watchlist()
+                    ex  = [w["ticker"] if isinstance(w, dict) else w for w in wl]
+                    if sel["symbol"] not in ex:
+                        wl.append({"ticker": sel["symbol"], "name": sel["name"],
+                                   "added_by": adder or "?", "added_at": today.isoformat()})
+                        with st.spinner("Ukladám…"):
+                            save_watchlist(wl)
+                        st.cache_data.clear()
+                        st.rerun()
+                    else:
+                        st.warning(f"{sel['symbol']} je už v zozname.")
+            else:
+                st.info("Nenašli sa výsledky — skúste zadať ticker priamo.")
+
+    with st.expander("➕ Pridať priamo kódom / Add by ticker"):
+        ca, cb, cc = st.columns([3, 2, 1])
+        with ca: mt = st.text_input("Ticker", placeholder="napr. AAPL", key="mt", label_visibility="collapsed")
+        with cb: ma = st.text_input("Prezývka", placeholder="napr. Peter", key="ma", label_visibility="collapsed")
+        with cc:
+            if st.button("➕", type="primary", key="mt_add", use_container_width=True):
+                t = mt.upper().strip()
+                if t:
+                    wl = load_watchlist()
+                    ex = [w["ticker"] if isinstance(w, dict) else w for w in wl]
+                    if t not in ex:
+                        wl.append({"ticker": t, "name": t,
+                                   "added_by": ma or "?", "added_at": today.isoformat()})
+                        with st.spinner("Ukladám…"):
+                            save_watchlist(wl)
+                        st.cache_data.clear()
+                        st.rerun()
+
+    raw_wl    = load_watchlist()
+    watchlist = [w if isinstance(w, dict) else
+                 {"ticker": w, "name": w, "added_by": "", "added_at": ""}
+                 for w in raw_wl]
 
     if not watchlist:
-        st.info(
-            "Sledovaný zoznam je prázdny. Pridajte prvú akciu vyššie.\n\n"
-            "*Watchlist is empty — add your first stock above.*"
-        )
-        return
+        st.info("Sledovaný zoznam je prázdny. / Watchlist is empty.")
+    else:
+        with st.spinner("Načítavanie akcií…"):
+            stock_data = fetch_watchlist_data(tuple(w["ticker"] for w in watchlist))
 
-    # Fetch & display
-    with st.spinner("Načítavanie akcií / Loading stocks…"):
-        stock_data = fetch_watchlist_data(tuple(watchlist))
-
-    cols_per_row = min(len(watchlist), 4)
-    tickers_list = list(stock_data.keys())
-    for row_start in range(0, len(tickers_list), cols_per_row):
-        row_tickers = tickers_list[row_start:row_start + cols_per_row]
-        cols = st.columns(cols_per_row)
-        for col, t in zip(cols, row_tickers):
-            with col:
-                d = stock_data[t]
-                if d.get("error") and d["price"] == 0.0:
-                    st.error(f"**{t}**: {d['error'][:60]}")
-                else:
-                    stock_card(t, d["name"], d["price"], d["chg"], d["currency"])
-                if st.button(f"🗑 {t}", key=f"rm_{t}", use_container_width=True):
-                    watchlist.remove(t)
-                    with st.spinner("Ukladám…"):
-                        save_watchlist(watchlist)
-                    st.cache_data.clear()
-                    st.rerun()
+        n_per = min(len(watchlist), 4)
+        for rs in range(0, len(watchlist), n_per):
+            row_items = watchlist[rs:rs + n_per]
+            cols      = st.columns(n_per)
+            for col, item in zip(cols, row_items):
+                t = item["ticker"]
+                d = stock_data.get(t, {})
+                with col:
+                    if d.get("error") and d.get("price", 0) == 0.0:
+                        st.error(f"**{t}**: dáta nedostupné")
+                    else:
+                        stock_card(t, d.get("name", item["name"]),
+                                   d.get("price", 0), d.get("chg", 0),
+                                   d.get("currency", "USD"), item.get("added_by", ""))
+                    b1, b2 = st.columns(2)
+                    with b1:
+                        if st.button("📊 Detail", key=f"det_{t}", use_container_width=True):
+                            st.session_state["detail_ticker"] = t
+                            st.rerun()
+                    with b2:
+                        if st.button("🗑️ Odstrániť", key=f"rm_{t}", use_container_width=True):
+                            new_wl = [w for w in raw_wl
+                                      if (w["ticker"] if isinstance(w, dict) else w) != t]
+                            with st.spinner("Ukladám…"):
+                                save_watchlist(new_wl)
+                            st.cache_data.clear()
+                            st.rerun()
 
     st.markdown("---")
 
-    # ── Správy ──
-    st.subheader("📰 Aktuálne správy / Latest News")
-    any_news = False
-    for t, d in stock_data.items():
-        news = d.get("news", [])
-        if not news:
-            continue
-        any_news = True
-        with st.expander(f"📌 **{t}** — {d.get('name', t)}", expanded=False):
-            for art in news:
-                title     = art.get("title", "")
-                link      = art.get("link", "#")
-                publisher = art.get("publisher", "")
-                ts        = art.get("ts", 0)
-                time_str  = ""
-                if ts:
-                    try:
-                        time_str = dt.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M")
-                    except Exception:
-                        pass
-                sep = " · " if publisher and time_str else ""
-                st.markdown(
-                    f"**[{title}]({link})**  \n"
-                    f"<small style='color:#8a5535'>{publisher}{sep}{time_str}</small>",
-                    unsafe_allow_html=True,
-                )
-                st.markdown("&nbsp;")
+    # ── Top 15 news ──
+    st.subheader("📰 Medzinárodné správy — Top 15 / International Financial News")
+    with st.spinner("Načítavanie správ…"):
+        news_items = fetch_global_news(15)
 
-    if not any_news:
-        st.info(
-            "Žiadne správy pre aktuálny sledovaný zoznam.\n\n"
-            "*No news available for current watchlist.*"
-        )
+    if not news_items:
+        st.info("Správy momentálne nie sú dostupné. / News currently unavailable.")
+    else:
+        for i, n in enumerate(news_items, 1):
+            title = n.get("title", "")
+            link  = n.get("link", "#")
+            pub   = n.get("publisher", "")
+            ts    = n.get("providerPublishTime", 0)
+            tstr  = dt.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else ""
+            if not title:
+                continue
+            st.markdown(
+                f"**{i}.** &nbsp;**[{title}]({link})**  \n"
+                f"<small style='color:#8a5535'>{pub}{' · ' if pub and tstr else ''}{tstr}</small>",
+                unsafe_allow_html=True,
+            )
+            st.divider()
 
-    if st.button("🔄 Obnoviť / Refresh", key="briefing_refresh"):
+    if st.button("🔄 Obnoviť / Refresh", key="br_refresh"):
         st.cache_data.clear()
         st.rerun()
 
