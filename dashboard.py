@@ -7,14 +7,19 @@ from io import StringIO
 
 
 @st.cache_resource(show_spinner=False)
-def _load_bg_b64() -> str:
-    """Load bg.jpg from repo root as base64 (cached). Returns '' if not found."""
+def _load_bg_b64() -> tuple:
+    """Load bg.jpg / bg.png from repo root. Returns (base64_str, mime_type) or ('', '')."""
     import base64, pathlib
-    p = pathlib.Path(__file__).parent / "bg.jpg"
-    if p.exists():
-        with open(p, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    return ""
+    root = pathlib.Path(__file__).parent
+    for fname, mime in [("bg.jpg", "image/jpeg"), ("bg.png", "image/png")]:
+        p = root / fname
+        if p.exists():
+            # Auto-detect PNG by magic bytes regardless of extension
+            raw = p.read_bytes()
+            if raw[:4] == b"\x89PNG":
+                mime = "image/png"
+            return base64.b64encode(raw).decode(), mime
+    return "", ""
 
 st.set_page_config(
     page_title="Fitness Group Dashboard",
@@ -341,18 +346,17 @@ st.markdown("""
 
 # ── Custom photo background (watermark) ──────────────────────────────────────
 # Place bg.jpg in the repo root to activate. Falls back to the SVG above.
-_bg = _load_bg_b64()
+_bg, _bg_mime = _load_bg_b64()
 if _bg:
     st.markdown(f"""
     <style>
         /* Hide the SVG botanical layer when photo background is active */
         .botanical-layer {{ display: none !important; }}
-        /* Slight paper tint so content stays readable */
-        .stApp {{ background-color: rgba(245,250,255,0.55) !important; }}
+        .stApp {{ background-color: #e8f4f8 !important; }}
     </style>
     <div style="position:fixed;top:0;left:0;width:100vw;height:100vh;
                 pointer-events:none;z-index:0;overflow:hidden;opacity:0.22">
-        <img src="data:image/jpeg;base64,{_bg}"
+        <img src="data:{_bg_mime};base64,{_bg}"
              style="width:100%;height:100%;object-fit:cover;object-position:center top">
     </div>
     """, unsafe_allow_html=True)
