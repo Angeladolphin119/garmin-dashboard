@@ -593,15 +593,10 @@ def fetch_watchlist_data(tickers: tuple) -> dict:
                 pass
             news = []
             try:
-                for n in (tk.news or [])[:5]:
-                    if not isinstance(n, dict):
-                        continue
-                    title = n.get("title", "")
-                    link = n.get("link", "#")
-                    publisher = n.get("publisher", "")
-                    ts = n.get("providerPublishTime", 0)
-                    if title:
-                        news.append({"title": title, "link": link, "publisher": publisher, "ts": ts})
+                parsed = _parse_yf_news(tk.news or [])[:5]
+                news = [{"title": p["title"], "link": p["link"],
+                         "publisher": p["publisher"], "ts": p["providerPublishTime"]}
+                        for p in parsed]
             except Exception:
                 pass
             result[t] = {
@@ -683,22 +678,96 @@ def fetch_morning_markets() -> list:
     return out
 
 
+def _parse_yf_news(raw_list: list) -> list:
+    """Normalize yfinance news items — handles both old and new (content-nested) formats."""
+    out = []
+    for n in (raw_list or []):
+        if not isinstance(n, dict):
+            continue
+        content = n.get("content")
+        if content and isinstance(content, dict):
+            title = content.get("title", "")
+            url_obj = content.get("canonicalUrl", {})
+            link = (url_obj.get("url", "") if isinstance(url_obj, dict) else str(url_obj or "")) or "#"
+            prov = content.get("provider", {})
+            pub  = prov.get("displayName", "") if isinstance(prov, dict) else str(prov or "")
+            ts   = 0
+            pd_s = content.get("pubDate", "")
+            if pd_s:
+                try:
+                    from datetime import datetime
+                    ts = int(datetime.fromisoformat(pd_s.replace("Z", "+00:00")).timestamp())
+                except Exception:
+                    pass
+        else:
+            title = n.get("title", "")
+            link  = n.get("link", "#") or "#"
+            pub   = n.get("publisher", "")
+            ts    = n.get("providerPublishTime", 0) or 0
+        if title:
+            out.append({"title": title, "link": link, "publisher": pub,
+                        "providerPublishTime": ts, "uuid": n.get("uuid", link)})
+    return out
+
+
+def _fetch_rss_news(limit: int = 20) -> list:
+    """Fallback: fetch financial news via RSS feeds."""
+    try:
+        import feedparser
+        from datetime import datetime
+        import time as _time
+        feeds = [
+            ("Reuters Business",  "https://feeds.reuters.com/reuters/businessNews"),
+            ("MarketWatch",       "https://feeds.marketwatch.com/marketwatch/topstories/"),
+            ("Yahoo Finance",     "https://finance.yahoo.com/rss/topstories"),
+            ("CNBC Markets",      "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114"),
+        ]
+        seen, items = set(), []
+        for pub, url in feeds:
+            try:
+                feed = feedparser.parse(url)
+                for e in (feed.entries or []):
+                    title = e.get("title", "")
+                    link  = e.get("link", "#")
+                    if not title or link in seen:
+                        continue
+                    seen.add(link)
+                    ts = 0
+                    if e.get("published_parsed"):
+                        ts = int(_time.mktime(e.published_parsed))
+                    items.append({"title": title, "link": link, "publisher": pub,
+                                  "providerPublishTime": ts, "uuid": link})
+            except Exception:
+                continue
+        return items
+    except Exception:
+        return []
+
+
 @st.cache_data(ttl=900, show_spinner=False)
 def fetch_global_news(limit: int = 15) -> list:
     import yfinance as yf
-    sources = ["^GSPC", "^IXIC", "^DJI", "SPY", "QQQ", "GC=F", "BTC-USD", "^VIX", "^TNX"]
+    sources = ["SPY", "QQQ", "GLD", "BTC-USD", "AAPL", "MSFT", "TSLA", "^VIX", "TLT"]
     seen, all_news = set(), []
     for sym in sources:
         try:
-            for n in (yf.Ticker(sym).news or []):
-                if not isinstance(n, dict):
-                    continue
-                uid = n.get("uuid") or n.get("link", "")
+            raw = yf.Ticker(sym).news or []
+            for item in _parse_yf_news(raw):
+                uid = item.get("uuid") or item.get("link", "")
                 if uid and uid not in seen:
                     seen.add(uid)
-                    all_news.append(n)
+                    all_news.append(item)
         except Exception:
             continue
+
+    # Supplement with RSS if yfinance returned fewer than 8 items
+    if len(all_news) < 8:
+        for item in _fetch_rss_news():
+            uid = item.get("uuid") or item.get("link", "")
+            if uid and uid not in seen:
+                seen.add(uid)
+                all_news.append(item)
+
     all_news.sort(key=lambda x: x.get("providerPublishTime", 0), reverse=True)
     return all_news[:limit]
 
@@ -723,9 +792,7 @@ def fetch_company_detail(ticker: str, period: str) -> dict:
         pass
     news = []
     try:
-        for n in (tk.news or [])[:10]:
-            if isinstance(n, dict) and n.get("title"):
-                news.append(n)
+        news = _parse_yf_news(tk.news or [])[:10]
     except Exception:
         pass
     divs = []
