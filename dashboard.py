@@ -598,6 +598,22 @@ def fetch_morning_markets() -> list:
     return out
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def fetch_market_sparklines() -> dict:
+    """30-day daily close history for each market index (mini sparkline charts)."""
+    import yfinance as yf
+    syms = ["^N225","^HSI","^GDAXI","^FTSE","^GSPC","^IXIC","GC=F","BTC-USD"]
+    out = {}
+    for sym in syms:
+        try:
+            h = yf.Ticker(sym).history(period="1mo", interval="1d")
+            if not h.empty:
+                out[sym] = [float(v) for v in h["Close"].values if not pd.isna(v)]
+        except Exception:
+            out[sym] = []
+    return out
+
+
 def _parse_yf_news(raw_list: list) -> list:
     """Normalize yfinance news items — handles both old and new (content-nested) formats."""
     out = []
@@ -1019,7 +1035,223 @@ def tab_dashboard():
         st.rerun()
 
 
-# ── Tab 3: Ranný prehľad ──────────────────────────────────────────────────────
+# ── US market holiday detection ───────────────────────────────────────────────
+
+def is_us_market_closed(check_date) -> tuple:
+    """Return (is_closed: bool, reason: str). Checks weekends + NYSE holidays."""
+    from datetime import date as _d
+    if hasattr(check_date, "date"):
+        check_date = check_date.date()
+    if check_date.weekday() >= 5:
+        return True, "Víkend / Weekend"
+
+    y = check_date.year
+
+    def nth_weekday(yr, mo, n, wd):
+        count = 0
+        for day in range(1, 32):
+            try:
+                dt = _d(yr, mo, day)
+                if dt.weekday() == wd:
+                    count += 1
+                    if count == n:
+                        return dt
+            except ValueError:
+                break
+        return None
+
+    def last_weekday(yr, mo, wd):
+        for day in range(31, 23, -1):
+            try:
+                dt = _d(yr, mo, day)
+                if dt.weekday() == wd:
+                    return dt
+            except ValueError:
+                continue
+        return None
+
+    def easter(yr):
+        a, b, c = yr % 19, yr // 100, yr % 100
+        d2, e = b // 4, b % 4
+        f = (b + 8) // 25
+        g = (b - f + 1) // 3
+        h = (19*a + b - d2 - g + 15) % 30
+        i, k = c // 4, c % 4
+        l = (32 + 2*e + 2*i - h - k) % 7
+        m2 = (a + 11*h + 22*l) // 451
+        mo = (h + l - 7*m2 + 114) // 31
+        dy = ((h + l - 7*m2 + 114) % 31) + 1
+        return _d(yr, mo, dy)
+
+    def subst(hdate):
+        if hdate.weekday() == 5: return hdate - timedelta(days=1)
+        if hdate.weekday() == 6: return hdate + timedelta(days=1)
+        return hdate
+
+    fixed_holidays = [
+        (_d(y, 1, 1),  "New Year's Day / Nový rok"),
+        (_d(y, 6, 19), "Juneteenth National Independence Day"),
+        (_d(y, 7, 4),  "Independence Day / Deň nezávislosti USA"),
+        (_d(y, 12, 25),"Christmas Day / Vianoce"),
+    ]
+    for hdate, hname in fixed_holidays:
+        if check_date == subst(hdate):
+            return True, hname
+
+    variable_holidays = [
+        (nth_weekday(y, 1, 3, 0),   "Martin Luther King Jr. Day"),
+        (nth_weekday(y, 2, 3, 0),   "Presidents' Day"),
+        (last_weekday(y, 5, 0),     "Memorial Day"),
+        (nth_weekday(y, 9, 1, 0),   "Labor Day"),
+        (nth_weekday(y, 11, 4, 3),  "Thanksgiving Day"),
+        (easter(y) - timedelta(days=2), "Good Friday / Veľký piatok"),
+    ]
+    for hdate, hname in variable_holidays:
+        if hdate and check_date == hdate:
+            return True, hname
+
+    return False, ""
+
+
+def _briefing_text(b_type: str, markets: list, watchlist_data: dict,
+                   us_closed: bool, close_reason: str) -> str:
+    """Generate Buffett-style expert commentary for the given briefing period."""
+    def _m(sym): return next((m for m in markets if m["sym"] == sym), None)
+    sp   = _m("^GSPC"); ndq = _m("^IXIC"); dax = _m("^GDAXI")
+    n225 = _m("^N225"); hsi = _m("^HSI")
+    gld  = _m("GC=F");  btc = _m("BTC-USD")
+
+    def cs(m): return ("+" if m["chg"] >= 0 else "") + f"{m['chg']:.2f}%" if m else "N/A"
+    def sent(chg):
+        if chg >  1.5: return "silný rast 📈"
+        if chg >  0.3: return "mierny rast 🔼"
+        if chg > -0.3: return "stabilný ➡️"
+        if chg > -1.5: return "oslabenie 🔽"
+        return "výrazný pokles 📉"
+
+    risk_on  = (sp and sp["chg"] > 0.5) or (ndq and ndq["chg"] > 0.5)
+    risk_off = (gld and gld["chg"] > 0.6) or (sp and sp["chg"] < -0.5)
+
+    us_banner = (
+        f"\n\n> 🏛️ **Pozor — US burzy sú dnes zatvorené: {close_reason}.**  \n"
+        "> Objem obchodov na globálnych trhoch bude nižší ako obvykle.\n\n"
+    ) if us_closed else ""
+
+    if b_type == "morning":
+        asia_bits = [f"Nikkei {cs(n225)}" if n225 else "", f"Hang Seng {cs(hsi)}" if hsi else ""]
+        asia_str  = " · ".join(b for b in asia_bits if b) or "dáta sa načítavajú"
+        eu_str    = f"DAX {cs(dax)}" if dax else "dáta sa načítavajú"
+        tone      = "pozitívna — risk-on" if risk_on else "opatrná — risk-off" if risk_off else "neutrálna"
+        gld_note  = (f"\n- 🥇 **Zlato {cs(gld)}** — inštitucionálni investori presúvajú kapitál do bezpečných prístavov. Opatrnosť je na mieste."
+                     if gld and gld["chg"] > 0.4 else
+                     f"\n- 🥇 **Zlato {cs(gld)}** — odliv z defenzívnych aktív signalizuje chuť do rizika." if gld and gld["chg"] < -0.4 else "")
+        btc_note  = (f"\n- ₿ **Bitcoin {cs(btc)}** — silný pohyb krypta potvrduje *risk-on* náladu na trhoch." if btc and btc["chg"] > 2 else "")
+        return us_banner + f"""**🌅 Ranný prehľad — pohľad profesionálneho investora**
+
+**Celkový sentiment:** {tone}
+
+**Ázia uzavrela:** {asia_str}
+**Európa (DAX):** {eu_str}
+{gld_note}{btc_note}
+
+**Makro kontext:** Na základe dnešného ranného vývoja odporúčam {
+"sledovať selektívne príležitosti — trhy sú v ofenzívnom móde. Kvalitné spoločnosti s konkurenčnou výhodou sú preferovanou voľbou."
+if risk_on else
+"zvýšiť opatrnosť. V neistých časoch je cash pozícia tiež legitímna stratégia — *'Cash is king when opportunities arise.'*"
+if risk_off else
+"udržiavať doterajšiu alokáciu a vyhnúť sa reaktívnym rozhodnutiam. Trh hľadá smer."
+}
+
+> *„Pravidlo číslo jedna: nikdy nestráťte peniaze. Pravidlo číslo dva: nikdy nezabudnite na pravidlo číslo jedna."* — Warren Buffett"""
+
+    elif b_type == "preopen":
+        sp_note = ""
+        if us_closed:
+            return us_banner + f"""**🔔 US trhy dnes neotvárajú — {close_reason}**
+
+Globálne obchodovanie prebieha v zredukovanom objeme. Európske a ázijské trhy nastavujú smer.
+DAX: {cs(dax)} · Zlato: {cs(gld)}
+
+> *„Investovanie je jednoduché, ale nie ľahké."* — Warren Buffett"""
+        if sp:
+            if sp["chg"] > 0.5:
+                sp_note = f"S&P 500 futures naznačujú **pozitívne otvorenie ({cs(sp)})**. Momentum favorizuje býkov — ale prvých 30 minút býva volatilných."
+            elif sp["chg"] < -0.5:
+                sp_note = f"S&P 500 futures pod tlakom ({cs(sp)}). Nevstupujte impulzívne pri otvorení — počkajte na stabilizáciu ceny."
+            else:
+                sp_note = f"S&P 500 v neutrálnej zóne ({cs(sp)}). Smer otvorenia nie je jasný — vyčkajte na prvý 15-minútový vývoj."
+
+        tech_note = ""
+        if ndq:
+            tech_note = f"\n- 💻 **NASDAQ {cs(ndq)}** — technologický sektor " + (
+                "vedie rast. Big Tech môže byť katalyzátorom." if ndq["chg"] > 0.8 else
+                "pod tlakom. Ocenenia ostávajú citlivé na výnosy dlhopisov." if ndq["chg"] < -0.8 else
+                "v úzkom rozmedzí.")
+
+        return us_banner + f"""**🔔 Pred-otvorenie Wall Street — 30 minút do štartu**
+
+{sp_note}
+{tech_note}
+- 🥇 **Zlato {cs(gld)}** — {"defenzívna nálada sa udržuje." if gld and gld["chg"] > 0.3 else "rizikový apetít narastá." if gld and gld["chg"] < -0.3 else "bez výrazného smeru."}
+
+**Sektor focus dnes:** {
+"Technológia & rastové akcie — sledujte objem pri otvorení."
+if ndq and ndq["chg"] > 0.5 else
+"Defenzívne sektory (utility, zdravotníctvo, spotrebné tovary) — ochrana kapitálu v popredí."
+if risk_off else
+"Selektívny prístup — žiadny sektor nedominuje, hľadajte individuálne príbehy."
+}
+
+> *„Cena je to, čo zaplatíte. Hodnota je to, čo dostanete."* — Warren Buffett"""
+
+    else:  # postclose
+        if us_closed:
+            return us_banner + f"""**🌙 US trhy dnes neobchodovali — {close_reason}**
+
+Globálne trhy fungovali bez amerického objemu. Zajtra sa obchodovanie obnoví v plnom rozsahu.
+Európa: DAX {cs(dax)} · Ázia (posledná relácia): Nikkei {cs(n225)}
+
+> *„Čas je priateľom výnimočnej spoločnosti, nepriateľom priemernej."* — Warren Buffett"""
+
+        sp_close, verdict = "", ""
+        if sp:
+            sp_close = f"S&P 500 uzavrel na **{sp['price']:,.0f} bod.** ({cs(sp)})"
+            if sp["chg"] > 1.0:
+                verdict = "Silný deň pre akciový trh. Rally podporená širokým základom je zdravým signálom. Dlhodobí investori môžu postupne budovať pozície v kvalitných tituloch."
+            elif sp["chg"] < -1.0:
+                verdict = "Tlakový deň na Wall Street. Pokles je prirodzenou súčasťou trhu — *'Be greedy when others are fearful.'* Zvážte, či súčasné ceny ponúkajú lepšiu vstupnú príležitosť."
+            elif sp["chg"] > 0:
+                verdict = "Mierny nárast — trh si drží pozitívny bias. Bez katalyzátora nie je dôvod meniť alokáciu."
+            else:
+                verdict = "Mierne oslabenie — normálna korekcia bez systémového rizika. Udržujte disciplínu."
+
+        wl_lines = []
+        for t, d in (watchlist_data or {}).items():
+            chg = d.get("chg", 0)
+            if abs(chg) >= 1.5:
+                sign = "📈 +" if chg > 0 else "📉 "
+                wl_lines.append(f"  - **{t}** ({d.get('name', t)}): {sign}{chg:.2f}%")
+
+        wl_block = ("\n**Vaše sledované tituly — pohyby >1.5%:**\n" + "\n".join(wl_lines)) if wl_lines else ""
+
+        gld_note = (f"\n- 🥇 Zlato {cs(gld)} — inštitucionálna ochrana pretrváva." if gld and gld["chg"] > 0.5
+                    else f"\n- 🥇 Zlato {cs(gld)} — outflow z defenzívy." if gld and gld["chg"] < -0.5 else "")
+        btc_note = (f"\n- ₿ Bitcoin {cs(btc)} — krypto {'akcelerovalo' if btc['chg'] > 0 else 'korigovalo'} ({cs(btc)})." if btc and abs(btc["chg"]) > 2 else "")
+
+        return us_banner + f"""**🌙 Záver Wall Street — denné zhrnutie**
+
+{sp_close}
+
+{verdict}
+{gld_note}{btc_note}
+{wl_block}
+
+**Výhľad na zajtra:** Sledujte predvorené futures (cca 22:30–05:00 SEČ) a makroekonomický kalendár. Nereagujte na jednodenné pohyby — *'Our favorite holding period is forever.'*
+
+> *„Buďte chamtiví, keď sú ostatní vystrašení, a vystrašení, keď sú ostatní chamtiví."* — Warren Buffett"""
+
+
+# ── Tab 3: Briefing ───────────────────────────────────────────────────────────
 
 def stock_card(ticker: str, name: str, price: float, chg: float,
                currency: str, added_by: str = ""):
@@ -1129,10 +1361,11 @@ def _show_company_detail(ticker: str):
         tstr  = dt.fromtimestamp(ts).strftime("%d.%m.%Y %H:%M") if ts else ""
         st.markdown(
             f"**[{title}]({link})**  \n"
-            f"<small style='color:#8a5535'>{pub}{' · ' if pub and tstr else ''}{tstr}</small>",
+            f"<small style='color:#6a7a5a'>{pub}{' · ' if pub and tstr else ''}{tstr}</small>",
             unsafe_allow_html=True,
         )
-        st.markdown("&nbsp;")
+        st.markdown("<hr style='margin:3px 0 5px 0;border:none;border-top:1px solid #d0ddc8'>",
+                    unsafe_allow_html=True)
 
 
 def tab_briefing():
@@ -1151,59 +1384,88 @@ def tab_briefing():
     date_sk = f"{today.day}. {SK_MONTHS[today.month - 1]} {today.year}"
     cet_now = get_cet_now()
 
-    st.header("📈 Ranný prehľad / Morning Briefing")
+    # Determine briefing period
+    cet_mins = cet_now.hour * 60 + cet_now.minute
+    if 7*60 <= cet_mins < 15*60:
+        b_type = "morning"
+        b_label = "🌅 Ranný prehľad · 07:00 SEČ"
+        b_next  = "Ďalší: Pred-otvorenie US 15:00"
+    elif 15*60 <= cet_mins < 22*60 + 30:
+        b_type = "preopen"
+        b_label = "🔔 Pred-otvorenie US · 15:00 SEČ"
+        b_next  = "Ďalší: Záver US 22:30"
+    else:
+        b_type = "postclose"
+        b_label = "🌙 Záver Wall Street · 22:30 SEČ"
+        b_next  = "Ďalší: Ranný prehľad 07:00"
+
+    us_closed, close_reason = is_us_market_closed(cet_now)
+
+    st.header("📈 Briefing")
     st.markdown(
         f'<p class="bilingual-caption">'
         f'Investičný prehľad · {date_sk} · SEČ {cet_now.strftime("%H:%M")}'
-        f'{"&nbsp;· ✅ Ranný prehľad zo 07:00" if cet_now.hour >= 7 else "&nbsp;· ⏳ Ranný prehľad bude o 07:00"}'
+        f' · {b_label}'
+        f'{" · 🏛️ US CLOSED" if us_closed else ""}'
         f'</p>',
         unsafe_allow_html=True,
     )
 
-    # ── Markets ──
+    # ── Markets with sparklines ──
     st.subheader("🌍 Dnešné trhy / Today's Markets")
     with st.spinner("Načítavanie trhov…"):
         markets = fetch_morning_markets()
+        sparks  = fetch_market_sparklines()
+
+    from plotly.subplots import make_subplots as _msp
+    fig_sp = _msp(rows=2, cols=4,
+                  subplot_titles=[m["name"] for m in markets],
+                  horizontal_spacing=0.04, vertical_spacing=0.22)
+    for idx, m in enumerate(markets):
+        r, c = idx // 4 + 1, idx % 4 + 1
+        hist = sparks.get(m["sym"], [])
+        color = "#2a7a4a" if m["chg"] >= 0 else "#a83232"
+        if len(hist) > 1:
+            fig_sp.add_trace(
+                go.Scatter(x=list(range(len(hist))), y=hist, mode="lines",
+                           line=dict(color=color, width=1.8),
+                           showlegend=False),
+                row=r, col=c)
+    fig_sp.update_xaxes(showticklabels=False, showgrid=False, zeroline=False)
+    fig_sp.update_yaxes(showticklabels=False, showgrid=False, zeroline=False)
+    fig_sp.update_layout(height=190, margin=dict(t=28, b=4, l=4, r=4),
+                         plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)")
+    st.plotly_chart(fig_sp, use_container_width=True)
 
     for rs in range(0, len(markets), 4):
-        row = markets[rs:rs + 4]
-        cols = st.columns(len(row))
-        for col, m in zip(cols, row):
+        row_m = markets[rs:rs + 4]
+        cols  = st.columns(len(row_m))
+        for col, m in zip(cols, row_m):
             color = "#2a7a4a" if m["chg"] >= 0 else "#a83232"
             sign  = "+" if m["chg"] >= 0 else ""
             arrow = "▲" if m["chg"] >= 0 else "▼"
             with col:
                 st.markdown(f"""
-                <div class="metric-card" style="text-align:center;padding:10px 4px">
-                  <div style="font-size:20px">{m['flag']}</div>
-                  <div class="metric-label" style="font-weight:700;font-size:11px">{m['name']}</div>
-                  <div style="font-size:16px;font-weight:700;color:{color}">{sign}{m['chg']:.2f}%&nbsp;{arrow}</div>
-                  <div class="metric-unit">{m['price']:,.0f}</div>
+                <div class="metric-card" style="text-align:center;padding:8px 4px">
+                  <div style="font-size:18px">{m['flag']}</div>
+                  <div class="metric-label" style="font-weight:700;font-size:10px">{m['name']}</div>
+                  <div style="font-size:15px;font-weight:700;color:{color}">{sign}{m['chg']:.2f}%&nbsp;{arrow}</div>
+                  <div class="metric-unit" style="font-size:10px">{m['price']:,.0f}</div>
                 </div>""", unsafe_allow_html=True)
 
-    # ── Investment highlights ──
-    if cet_now.hour >= 7:
-        st.markdown("---")
-        st.subheader("💡 Investičné príležitosti dnes / Today's Highlights")
-        bullish = [m for m in markets if m["chg"] >  0.5]
-        bearish = [m for m in markets if m["chg"] < -0.5]
-        if bullish:
-            st.success("📈 **Rastúce trhy:** " +
-                       " · ".join(f"{m['name']} (+{m['chg']:.2f}%)" for m in bullish))
-        if bearish:
-            st.warning("📉 **Zvýšená opatrnosť:** " +
-                       " · ".join(f"{m['name']} ({m['chg']:.2f}%)" for m in bearish))
-        if not bullish and not bearish:
-            st.info("📊 Trhy v úzkom rozmedzí — čakajte na jasnejší signál.")
-        gold = next((m for m in markets if m["sym"] == "GC=F"), None)
-        btc  = next((m for m in markets if m["sym"] == "BTC-USD"), None)
-        if gold and gold["chg"] > 0.5:
-            st.info(f"🥇 Zlato rastie (+{gold['chg']:.2f}%) — obranná nálada / risk-off sentiment.")
-        if btc and btc["chg"] > 2:
-            st.info(f"₿ Bitcoin silný (+{btc['chg']:.2f}%) — chuť do rizika / risk-on signal.")
-    else:
-        mins_left = 7 * 60 - cet_now.hour * 60 - cet_now.minute
-        st.info(f"⏰ Ranný prehľad bude dostupný od **07:00 SEČ** (za {mins_left} min).")
+    # ── Briefing ──
+    st.markdown("---")
+    st.subheader(f"💼 {b_label}")
+    st.caption(f"⏭ {b_next}")
+
+    with st.spinner("Generujem prehľad…"):
+        raw_wl2    = load_watchlist()
+        watchlist2 = [w if isinstance(w, dict) else {"ticker": w, "name": w, "added_by": "", "added_at": ""}
+                      for w in raw_wl2]
+        wl_data2   = fetch_watchlist_data(tuple(w["ticker"] for w in watchlist2)) if watchlist2 else {}
+
+    briefing_md = _briefing_text(b_type, markets, wl_data2, us_closed, close_reason)
+    st.markdown(briefing_md)
 
     st.markdown("---")
 
@@ -1329,7 +1591,7 @@ def main():
     tab1, tab2, tab3 = st.tabs([
         "📥 Synchronizovať / Sync My Data",
         "📊 Skupinový prehľad / Group Dashboard",
-        "📈 Ranný prehľad / Morning Briefing",
+        "📈 Briefing",
     ])
     with tab1:
         tab_sync()
